@@ -1,0 +1,10 @@
+#ifndef __ROCKETCHAT_H
+#define __ROCKETCHAT_H
+
+typedef struct _ROCKETCHAT_SERVER_REC ROCKETCHAT_SERVER_REC;
+typedef struct _ROCKETCHAT_QUERY_REC ROCKETCHAT_QUERY_REC;
+
+#define ROCKETCHAT_PROTOCOL_NAME "rocketchat"
+#define ROCKETCHAT_PROTOCOL (chat_protocol_lookup(ROCKETCHAT_PROTOCOL_NAME))
+
+#endif

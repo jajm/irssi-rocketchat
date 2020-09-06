@@ -9,23 +9,14 @@
 #include "queries.h"
 #include "levels.h"
 #include "printtext.h"
+#include "rocketchat-servers.h"
+#include "rocketchat-queries.h"
 #include "libwebsockets.h"
 #include "jansson.h"
-
-#define STRUCT_SERVER_REC SERVER_REC
-typedef struct _ROCKETCHAT_QUERY_REC {
-	#include "query-rec.h"
-} ROCKETCHAT_QUERY_REC;
-
-struct rocketchat_per_session_data {
-	struct lws_ring *ring;
-	GString *buffer;
-};
 
 static CHATNET_REC *
 rocketchat_create_chatnet(void)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return g_new0(CHATNET_REC, 1);
 }
 
@@ -33,7 +24,6 @@ static SERVER_SETUP_REC *
 rocketchat_create_server_setup(void)
 {
 
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return g_new0(SERVER_SETUP_REC, 1);
 }
 
@@ -41,7 +31,6 @@ static SERVER_CONNECT_REC *
 rocketchat_create_server_connect(void)
 {
 	SERVER_CONNECT_REC *conn;
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 
 	conn = g_new0(SERVER_CONNECT_REC, 1);
 	return conn;
@@ -50,58 +39,65 @@ rocketchat_create_server_connect(void)
 static CHANNEL_SETUP_REC *
 rocketchat_create_channel_setup(void)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return g_new0(CHANNEL_SETUP_REC, 1);
 }
 
 static void
 rocketchat_destroy_server_connect(SERVER_CONNECT_REC *conn)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 }
 
 static void
 rocketchat_channels_join(SERVER_REC *server, const char *data, int automatic)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 }
 
 static int
 rocketchat_isnickflag(SERVER_REC *server, char flag)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return 0;
 }
 
 static int rocketchat_ischannel(SERVER_REC *server, const char *data)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return 0;
 }
 
 static const char *
 rocketchat_get_nick_flags(SERVER_REC *server)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return "";
 }
 
 static void
-rocketchat_send_message(SERVER_REC *server, const char *target, const char *msg, int target_type)
+rocketchat_send_message(SERVER_REC *server_rec, const char *target, const char *msg, int target_type)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
+	ROCKETCHAT_SERVER_REC *server = (ROCKETCHAT_SERVER_REC *)server_rec;
+
+	json_t *message = json_object();
+	json_object_set_new(message, "rid", json_string(target));
+	json_object_set_new(message, "msg", json_string(msg));
+
+	json_t *params = json_array();
+	json_array_append_new(params, message);
+
+	json_t *root = json_object();
+	json_object_set_new(root, "msg", json_string("method"));
+	json_object_set_new(root, "method", json_string("sendMessage"));
+	json_object_set_new(root, "id", json_sprintf("%s-%s", "sendMessage", target));
+	json_object_set_new(root, "params", params);
+
+	g_queue_push_tail(server->message_queue, root);
+	lws_callback_on_writable(server->wsi);
 }
 
 static SERVER_REC *
 rocketchat_server_init_connect(SERVER_CONNECT_REC *connrec)
 {
-	SERVER_REC *server;
+	ROCKETCHAT_SERVER_REC *server;
 
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
-	printtext(NULL, NULL, MSGLEVEL_MSGS, connrec->address);
-
-	server = g_new0(SERVER_REC, 1);
-	server->chat_type = chat_protocol_lookup("rocketchat");
+	server = g_new0(ROCKETCHAT_SERVER_REC, 1);
+	server->chat_type = ROCKETCHAT_PROTOCOL;
 	server->connrec = connrec;
 	server->channels_join = rocketchat_channels_join;
 	server->isnickflag = rocketchat_isnickflag;
@@ -116,70 +112,76 @@ rocketchat_server_init_connect(SERVER_CONNECT_REC *connrec)
 	server->connrec->no_connect = TRUE;
 	server->connect_pid = -1;
 
-	server_connect_init(server);
+	server_connect_init((SERVER_REC *)server);
 
-	return server;
+	return (SERVER_REC *)server;
 }
 
-static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
-	SERVER_REC *server;
+	ROCKETCHAT_SERVER_REC *server;
 	json_t *json, *json_msg;
 	json_error_t json_error;
-	struct rocketchat_per_session_data *pss = user;
+
+	// printtext(NULL, NULL, MSGLEVEL_CRAP, "reason: %d", reason);
+
+	if (reason == LWS_CALLBACK_PROTOCOL_INIT) {
+		return 0;
+	}
 
 	server = lws_get_opaque_user_data(wsi);
 
-	lwsl_user("reason: %d", reason);
-
-	if (server && server->disconnected) {
-		printtext(NULL, NULL, MSGLEVEL_MSGS, "disconnected");
+	if (!server || server->disconnected) {
+		printtext(server, NULL, MSGLEVEL_CRAP, "disconnected");
 		return -1;
 	}
 
 	switch (reason) {
 		case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
-			if (server && in) {
-				server_connect_failed(server, in);
-			}
+			server_connect_failed((SERVER_REC *)server, in);
 			return -1;
 
 		case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
-			printtext(NULL, NULL, MSGLEVEL_MSGS, in);
+			printtext(server, NULL, MSGLEVEL_CRAP, "peer initiated close");
+			server_disconnect((SERVER_REC *)server);
 			break;
 
 		case LWS_CALLBACK_CLIENT_ESTABLISHED:
-			pss->ring = lws_ring_create(sizeof(json_t *), 128, NULL);
-			pss->buffer = g_string_new(NULL);
-			printtext(NULL, NULL, MSGLEVEL_MSGS, "established");
-			server_connect_finished(server);
+			lookup_servers = g_slist_remove(lookup_servers, server);
+			server->connected = TRUE;
+			server->wsi = wsi;
+			server->message_queue = g_queue_new();
+			server->buffer = g_string_new(NULL);
+			server_connect_finished((SERVER_REC *)server);
+
 			json = json_object();
 			json_object_set_new(json, "msg", json_string("connect"));
 			json_object_set_new(json, "version", json_string("1"));
 			json_object_set_new(json, "support", json_array());
 			json_array_append_new(json_object_get(json, "support"), json_string("1"));
-			lws_ring_insert(pss->ring, &json, 1);
+			g_queue_push_tail(server->message_queue, json);
 			lws_callback_on_writable(wsi);
 			break;
 
 		case LWS_CALLBACK_CLIENT_CLOSED:
-			lws_ring_destroy(pss->ring);
-			g_string_free(pss->buffer, TRUE);
 			break;
 
 		case LWS_CALLBACK_CLIENT_WRITEABLE:
-			if (1 == lws_ring_consume(pss->ring, NULL, &json, 1)) {
+			json = g_queue_pop_head(server->message_queue);
+			if (json) {
 				size_t size = json_dumpb(json, NULL, 0, 0);
 				if (size != 0) {
-					char *buffer = malloc(LWS_PRE + size);
+					char *buffer = malloc(LWS_PRE + size + 1);
 					json_dumpb(json, buffer + LWS_PRE, size, 0);
-					lwsl_user("T: %*s", (int)size, buffer + LWS_PRE);
+					buffer[LWS_PRE + size] = '\0';
+					printtext(server, NULL, MSGLEVEL_CRAP, "T: %s", buffer + LWS_PRE);
 					lws_write(wsi, (unsigned char *)buffer + LWS_PRE, size, LWS_WRITE_TEXT);
 					free(buffer);
 				}
 				json_decref(json);
 			}
-			if (0 < lws_ring_get_count_waiting_elements(pss->ring, NULL)) {
+			if (!g_queue_is_empty(server->message_queue)) {
+				printtext(server, NULL, MSGLEVEL_CRAP, "queue not empty");
 				lws_callback_on_writable(wsi);
 			}
 			break;
@@ -188,14 +190,13 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 		{
 			const size_t remaining = lws_remaining_packet_payload(wsi);
 			if (!remaining && lws_is_final_fragment(wsi)) {
-				g_string_append_len(pss->buffer, in, len);
+				g_string_append_len(server->buffer, in, len);
 
-				//printtext(NULL, NULL, MSGLEVEL_MSGS, pss->buffer->str);
-				lwsl_user("R: %s", (char *)pss->buffer->str);
-				json = json_loadb(pss->buffer->str, pss->buffer->len, 0, &json_error);
-				g_string_truncate(pss->buffer, 0);
+				printtext(server, NULL, MSGLEVEL_CRAP, "R: %s", server->buffer->str);
+				json = json_loadb(server->buffer->str, server->buffer->len, 0, &json_error);
+				g_string_truncate(server->buffer, 0);
 				if (!json) {
-					lwsl_err("json error: %s", json_error.text);
+					printtext(server, NULL, MSGLEVEL_CRAP, "json error: %s", json_error.text);
 					break;
 				}
 
@@ -205,7 +206,7 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 					if (!strcmp("ping", msg)) {
 						json_t *message = json_object();
 						json_object_set_new(message, "msg", json_string("pong"));
-						lws_ring_insert(pss->ring, &message, 1);
+						g_queue_push_tail(server->message_queue, message);
 						lws_callback_on_writable(wsi);
 					} else if (!strcmp("connected", msg)) {
 						json_t *credential = json_object();
@@ -220,7 +221,7 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 						json_object_set_new(message, "id", json_string("login"));
 						json_object_set_new(message, "params", params);
 
-						lws_ring_insert(pss->ring, &message, 1);
+						g_queue_push_tail(server->message_queue, message);
 						lws_callback_on_writable(wsi);
 					} else if (!strcmp("result", msg)) {
 						const char *id = json_string_value(json_object_get(json, "id"));
@@ -240,7 +241,7 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 								json_object_set_new(message, "id", json_string("rooms/get"));
 								json_object_set_new(message, "params", params);
 
-								lws_ring_insert(pss->ring, &message, 1);
+								g_queue_push_tail(server->message_queue, message);
 								lws_callback_on_writable(wsi);
 							}
 						} else if (!strcmp(id, "rooms/get")) {
@@ -250,6 +251,24 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 							size_t index;
 							json_array_foreach(update, index, value) {
 								const char *rid = json_string_value(json_object_get(value, "_id"));
+								const char *name = json_string_value(json_object_get(value, "name"));
+								if (!name) {
+									json_t *usernames = json_object_get(value, "usernames");
+									gchar **usernames_str = g_new0(gchar *, json_array_size(usernames));
+									size_t i, j = 0;
+									json_t *username;
+									json_array_foreach(usernames, i, username) {
+										if (strcmp(json_string_value(username), server->nick)) {
+											usernames_str[j] = json_string_value(username);
+											j++;
+										}
+									}
+									// TODO free me
+									name = g_strjoinv(",", usernames_str);
+								}
+								CHANNEL_REC *channel = g_new0(CHANNEL_REC, 1);
+								channel->chat_type = ROCKETCHAT_PROTOCOL;
+								channel_init(channel, (SERVER_REC *)server, rid, name, TRUE);
 								json_t *params = json_array();
 								json_array_append_new(params, json_string(rid));
 								json_array_append_new(params, json_false());
@@ -258,15 +277,37 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 								json_object_set_new(message, "id", json_sprintf("sub-stream-room-messages-%s", rid));
 								json_object_set_new(message, "name", json_string("stream-room-messages"));
 								json_object_set_new(message, "params", params);
-								lws_ring_insert(pss->ring, &message, 1);
+								g_queue_push_tail(server->message_queue, message);
 							}
 							lws_callback_on_writable(wsi);
+						}
+					} else if (!strcmp(msg, "added")) {
+						const char *collection = json_string_value(json_object_get(json, "collection"));
+						if (!strcmp(collection, "users")) {
+							json_t *fields = json_object_get(json, "fields");
+							g_free(server->nick);
+							server->nick = g_strdup(json_string_value(json_object_get(fields, "username")));
+						}
+					} else if (!strcmp(msg, "changed")) {
+						const char *collection = json_string_value(json_object_get(json, "collection"));
+						if (!strcmp(collection, "stream-room-messages")) {
+							json_t *fields = json_object_get(json, "fields");
+							json_t *args = json_object_get(fields, "args");
+							json_t *message = json_array_get(args, 0);
+							json_t *replies = json_object_get(message, "replies");
+							json_t *reactions = json_object_get(message, "reactions");
+							json_t *editedAt = json_object_get(message, "editedAt");
+							const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
+							const char *rid = json_string_value(json_object_get(message, "rid"));
+							if (!replies && !reactions && !editedAt) {
+								signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, NULL, rid);
+							}
 						}
 					}
 				}
 				json_decref(json);
 			} else {
-				g_string_append_len(pss->buffer, in, len);
+				g_string_append_len(server->buffer, in, len);
 			}
 		}
 		break;
@@ -275,24 +316,22 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason, v
 			break;
 	}
 
-	return lws_callback_http_dummy(wsi, reason, user, in, len);
+	return 0;
 }
 
 static const struct lws_protocols protocols[] = {
-	{ "dumb-increment-protocol", callback_minimal, sizeof(struct rocketchat_per_session_data), 1024, 0, NULL, 0 },
+	{ "rocketchat", rocketchat_lws_callback, 0, 0, 0, NULL, 0 },
 	{ NULL, NULL, 0, 0, 0, NULL, 0 }
 };
 
 static void rocketchat_lws_log_emit (int level, const char *line)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, line);
+	printtext(NULL, NULL, MSGLEVEL_CRAP, line);
 }
 
 static void
 rocketchat_server_connect(SERVER_REC *server)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
-
 	struct lws_context_creation_info context_creation_info;
 	struct lws_client_connect_info client_connect_info;
 	struct lws_context *context;
@@ -302,6 +341,7 @@ rocketchat_server_connect(SERVER_REC *server)
 	ml = g_main_loop_new(NULL, TRUE);
 
 	lws_set_log_level(LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE, rocketchat_lws_log_emit);
+
 	memset(&context_creation_info, 0, sizeof context_creation_info);
 	context_creation_info.port = CONTEXT_PORT_NO_LISTEN;
 	context_creation_info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_GLIB;
@@ -322,8 +362,9 @@ rocketchat_server_connect(SERVER_REC *server)
 	client_connect_info.path = "/websocket";
 	client_connect_info.host = client_connect_info.address;
 	client_connect_info.origin = client_connect_info.address;
-	client_connect_info.ssl_connection = LCCSCF_USE_SSL;
-	client_connect_info.protocol = protocols[0].name; /* "dumb-increment-protocol" */
+	if (server->connrec->use_tls) {
+		client_connect_info.ssl_connection = LCCSCF_USE_SSL;
+	}
 	client_connect_info.opaque_user_data = server;
 
 	lws_client_connect_via_info(&client_connect_info);
@@ -333,18 +374,16 @@ static CHANNEL_REC *
 rocketchat_channel_create(SERVER_REC *server, const char *name, const char *visible_name,
     int automatic)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	return g_new0(CHANNEL_REC, 1);
 }
 
 static QUERY_REC *
 rocketchat_query_create(const char *server_tag, const char *data, int automatic)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
 	ROCKETCHAT_QUERY_REC *query_rec;
 
 	query_rec = g_new0(ROCKETCHAT_QUERY_REC, 1);
-	query_rec->chat_type = chat_protocol_lookup("rocketchat");
+	query_rec->chat_type = ROCKETCHAT_PROTOCOL;
 	query_rec->name = g_strdup(data);
 	query_init((QUERY_REC*)query_rec, automatic);
 
@@ -355,10 +394,8 @@ void rocketchat_core_init(void)
 {
 	CHAT_PROTOCOL_REC *chat_protocol;
 
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
-
 	chat_protocol = g_new0(CHAT_PROTOCOL_REC, 1);
-	chat_protocol->name = "rocketchat";
+	chat_protocol->name = ROCKETCHAT_PROTOCOL_NAME;
 	chat_protocol->fullname = "Rocket.Chat";
 	chat_protocol->chatnet = "rocketchat";
 	chat_protocol->case_insensitive = FALSE;
@@ -375,14 +412,17 @@ void rocketchat_core_init(void)
 	chat_protocol_register(chat_protocol);
 	g_free(chat_protocol);
 
+	rocketchat_servers_init();
+
 	module_register("rocketchat", "core");
 }
 
 void rocketchat_core_deinit(void)
 {
-	printtext(NULL, NULL, MSGLEVEL_MSGS, __func__);
-	signal_emit("chat protocol deinit", 1, chat_protocol_find("rocketchat"));
-	chat_protocol_unregister("rocketchat");
+	rocketchat_servers_deinit();
+
+	signal_emit("chat protocol deinit", 1, chat_protocol_find(ROCKETCHAT_PROTOCOL_NAME));
+	chat_protocol_unregister(ROCKETCHAT_PROTOCOL_NAME);
 }
 
 #ifdef IRSSI_ABI_VERSION
