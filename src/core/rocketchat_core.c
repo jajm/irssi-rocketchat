@@ -306,9 +306,10 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 							json_t *replies = json_object_get(message, "replies");
 							json_t *reactions = json_object_get(message, "reactions");
 							json_t *editedAt = json_object_get(message, "editedAt");
-							const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
-							const char *rid = json_string_value(json_object_get(message, "rid"));
-							if (!replies && !reactions && !editedAt) {
+							json_t *t = json_object_get(message, "t");
+							if (!replies && !reactions && !editedAt && !t) {
+								const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
+								const char *rid = json_string_value(json_object_get(message, "rid"));
 								signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, NULL, rid);
 							}
 						}
