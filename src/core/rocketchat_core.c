@@ -184,7 +184,6 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 				json_decref(json);
 			}
 			if (!g_queue_is_empty(server->message_queue)) {
-				printtext(server, NULL, MSGLEVEL_CRAP, "queue not empty");
 				lws_callback_on_writable(wsi);
 			}
 			break;
