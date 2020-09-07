@@ -254,7 +254,13 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 							json_array_foreach(update, index, value) {
 								const char *rid = json_string_value(json_object_get(value, "_id"));
 								const char *name = json_string_value(json_object_get(value, "name"));
-								if (!name) {
+								const char *fname = json_string_value(json_object_get(value, "fname"));
+								char *room_name;
+								if (fname) {
+									room_name = g_strjoin("#", fname, NULL);
+								} else if (name) {
+									room_name = g_strjoin("#", name, NULL);
+								} else {
 									json_t *usernames = json_object_get(value, "usernames");
 									gchar **usernames_str = g_new0(gchar *, json_array_size(usernames));
 									size_t i, j = 0;
@@ -265,12 +271,13 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 											j++;
 										}
 									}
-									// TODO free me
-									name = g_strjoinv(",", usernames_str);
+									room_name = g_strjoinv(",", usernames_str);
 								}
 								CHANNEL_REC *channel = g_new0(CHANNEL_REC, 1);
 								channel->chat_type = ROCKETCHAT_PROTOCOL;
-								channel_init(channel, (SERVER_REC *)server, rid, name, TRUE);
+								channel_init(channel, (SERVER_REC *)server, rid, room_name, TRUE);
+								g_free(room_name);
+
 								json_t *params = json_array();
 								json_array_append_new(params, json_string(rid));
 								json_array_append_new(params, json_false());
