@@ -359,6 +359,11 @@ rocketchat_server_connect(SERVER_REC *server)
 	foreign_loops[0] = (void *)ml;
 	context_creation_info.foreign_loops = foreign_loops;
 
+	// TCP keepalive
+	context_creation_info.ka_time = 60;
+	context_creation_info.ka_probes = 3;
+	context_creation_info.ka_interval = 5;
+
 	context = lws_create_context(&context_creation_info);
 	if (!context) {
 		server_connect_failed(server, "lws init failed");
