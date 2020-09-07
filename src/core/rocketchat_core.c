@@ -164,6 +164,9 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 			break;
 
 		case LWS_CALLBACK_CLIENT_CLOSED:
+			if (server) {
+				server_disconnect((SERVER_REC *)server);
+			}
 			break;
 
 		case LWS_CALLBACK_CLIENT_WRITEABLE:
