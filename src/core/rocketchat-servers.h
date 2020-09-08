@@ -17,6 +17,7 @@ struct _ROCKETCHAT_SERVER_REC {
 	struct lws *wsi;
 	GQueue *message_queue;
 	GString *buffer;
+	GHashTable *result_callbacks;
 };
 
 void rocketchat_servers_init(void);

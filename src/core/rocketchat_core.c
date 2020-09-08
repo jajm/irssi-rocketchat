@@ -14,36 +14,165 @@
 #include "libwebsockets.h"
 #include "jansson.h"
 
-static CHATNET_REC *
-rocketchat_create_chatnet(void)
+static void result_cb_rooms_get(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	json_t *result = json_object_get(json, "result");
+	json_t *update = json_object_get(result, "update");
+	json_t *value;
+	size_t index;
+	json_array_foreach(update, index, value) {
+		const char *rid = json_string_value(json_object_get(value, "_id"));
+		const char *name = json_string_value(json_object_get(value, "name"));
+		const char *fname = json_string_value(json_object_get(value, "fname"));
+		char *room_name;
+		if (fname) {
+			room_name = g_strconcat("#", fname, NULL);
+		} else if (name) {
+			room_name = g_strconcat("#", name, NULL);
+		} else {
+			json_t *usernames = json_object_get(value, "usernames");
+			const char **usernames_str = g_new0(const char *, json_array_size(usernames));
+			size_t i, j = 0;
+			json_t *username;
+			json_array_foreach(usernames, i, username) {
+				if (strcmp(json_string_value(username), server->nick)) {
+					usernames_str[j] = json_string_value(username);
+					j++;
+				}
+			}
+			room_name = g_strjoinv(",", (gchar **)usernames_str);
+			g_free(usernames_str);
+		}
+		CHANNEL_REC *channel = g_new0(CHANNEL_REC, 1);
+		channel->chat_type = ROCKETCHAT_PROTOCOL;
+		channel_init(channel, (SERVER_REC *)server, rid, room_name, TRUE);
+		g_free(room_name);
+
+		json_t *params = json_array();
+		json_array_append_new(params, json_string(rid));
+		json_array_append_new(params, json_false());
+		json_t *message = json_object();
+		json_object_set_new(message, "msg", json_string("sub"));
+		json_object_set_new(message, "id", json_sprintf("sub-stream-room-messages-%s", rid));
+		json_object_set_new(message, "name", json_string("stream-room-messages"));
+		json_object_set_new(message, "params", params);
+		g_queue_push_tail(server->message_queue, message);
+	}
+	lws_callback_on_writable(server->wsi);
+}
+
+static void result_cb_login(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	json_t *result = json_object_get(json, "result");
+	if (result) {
+		// Login successful !
+		gchar *id = g_uuid_string_random();
+		json_t *param = json_object();
+		json_object_set_new(param, "$date", json_integer(0));
+
+		json_t *params = json_array();
+		json_array_append_new(params, param);
+
+		json_t *message = json_object();
+		json_object_set_new(message, "msg", json_string("method"));
+		json_object_set_new(message, "method", json_string("rooms/get"));
+		json_object_set_new(message, "id", json_string(id));
+		json_object_set_new(message, "params", params);
+
+		g_hash_table_insert(server->result_callbacks, id, result_cb_rooms_get);
+		g_queue_push_tail(server->message_queue, message);
+		lws_callback_on_writable(server->wsi);
+	}
+}
+
+static void sig_recv_ping(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	json_t *message = json_object();
+	json_object_set_new(message, "msg", json_string("pong"));
+	g_queue_push_tail(server->message_queue, message);
+	lws_callback_on_writable(server->wsi);
+}
+
+static void sig_recv_connected(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	gchar *id = g_uuid_string_random();
+	json_t *credential = json_object();
+	json_object_set_new(credential, "resume", json_string(server->connrec->password));
+
+	json_t *params = json_array();
+	json_array_append_new(params, credential);
+
+	json_t *message = json_object();
+	json_object_set_new(message, "msg", json_string("method"));
+	json_object_set_new(message, "method", json_string("login"));
+	json_object_set_new(message, "id", json_string(id));
+	json_object_set_new(message, "params", params);
+
+	g_hash_table_insert(server->result_callbacks, id, result_cb_login);
+	g_queue_push_tail(server->message_queue, message);
+	lws_callback_on_writable(server->wsi);
+}
+
+static void sig_recv_result(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	const char *id = json_string_value(json_object_get(json, "id"));
+	void (*result_cb)(ROCKETCHAT_SERVER_REC *, json_t *) = g_hash_table_lookup(server->result_callbacks, id);
+	g_hash_table_remove(server->result_callbacks, id);
+	if (result_cb) {
+		result_cb(server, json);
+	}
+}
+
+static void sig_recv_added(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	const char *collection = json_string_value(json_object_get(json, "collection"));
+	if (!strcmp(collection, "users")) {
+		json_t *fields = json_object_get(json, "fields");
+		g_free(server->nick);
+		server->nick = g_strdup(json_string_value(json_object_get(fields, "username")));
+	}
+}
+
+static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	const char *collection = json_string_value(json_object_get(json, "collection"));
+	if (!strcmp(collection, "stream-room-messages")) {
+		json_t *fields = json_object_get(json, "fields");
+		json_t *args = json_object_get(fields, "args");
+		json_t *message = json_array_get(args, 0);
+		json_t *replies = json_object_get(message, "replies");
+		json_t *reactions = json_object_get(message, "reactions");
+		json_t *editedAt = json_object_get(message, "editedAt");
+		json_t *t = json_object_get(message, "t");
+		if (!replies && !reactions && !editedAt && !t) {
+			const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
+			const char *rid = json_string_value(json_object_get(message, "rid"));
+			signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, NULL, rid);
+		}
+	}
+}
+
+static CHATNET_REC *rocketchat_create_chatnet(void)
 {
 	return g_new0(CHATNET_REC, 1);
 }
 
-static SERVER_SETUP_REC *
-rocketchat_create_server_setup(void)
+static SERVER_SETUP_REC *rocketchat_create_server_setup(void)
 {
-
 	return g_new0(SERVER_SETUP_REC, 1);
 }
 
-static SERVER_CONNECT_REC *
-rocketchat_create_server_connect(void)
+static SERVER_CONNECT_REC *rocketchat_create_server_connect(void)
 {
-	SERVER_CONNECT_REC *conn;
-
-	conn = g_new0(SERVER_CONNECT_REC, 1);
-	return conn;
+	return g_new0(SERVER_CONNECT_REC, 1);
 }
 
-static CHANNEL_SETUP_REC *
-rocketchat_create_channel_setup(void)
+static CHANNEL_SETUP_REC *rocketchat_create_channel_setup(void)
 {
 	return g_new0(CHANNEL_SETUP_REC, 1);
 }
 
-static void
-rocketchat_destroy_server_connect(SERVER_CONNECT_REC *conn)
+static void rocketchat_destroy_server_connect(SERVER_CONNECT_REC *conn)
 {
 }
 
@@ -123,16 +252,17 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 	json_t *json, *json_msg;
 	json_error_t json_error;
 
-	// printtext(NULL, NULL, MSGLEVEL_CRAP, "reason: %d", reason);
-
-	if (reason == LWS_CALLBACK_PROTOCOL_INIT) {
-		return 0;
-	}
+	//if (reason == LWS_CALLBACK_PROTOCOL_INIT || reason == LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED || reason == LWS_CALLBACK_WSI_CREATE) {
+	//	return 0;
+	//}
 
 	server = lws_get_opaque_user_data(wsi);
 
-	if (!server || server->disconnected) {
-		printtext(server, NULL, MSGLEVEL_CRAP, "disconnected");
+	if (!server) {
+		return 0;
+	}
+	if (server->disconnected) {
+		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "disconnected %d", reason);
 		return -1;
 	}
 
@@ -150,17 +280,7 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 			lookup_servers = g_slist_remove(lookup_servers, server);
 			server->connected = TRUE;
 			server->wsi = wsi;
-			server->message_queue = g_queue_new();
-			server->buffer = g_string_new(NULL);
 			server_connect_finished((SERVER_REC *)server);
-
-			json = json_object();
-			json_object_set_new(json, "msg", json_string("connect"));
-			json_object_set_new(json, "version", json_string("1"));
-			json_object_set_new(json, "support", json_array());
-			json_array_append_new(json_object_get(json, "support"), json_string("1"));
-			g_queue_push_tail(server->message_queue, json);
-			lws_callback_on_writable(wsi);
 			break;
 
 		case LWS_CALLBACK_CLIENT_CLOSED:
@@ -174,12 +294,11 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 			if (json) {
 				size_t size = json_dumpb(json, NULL, 0, 0);
 				if (size != 0) {
-					char *buffer = malloc(LWS_PRE + size + 1);
-					json_dumpb(json, buffer + LWS_PRE, size, 0);
-					buffer[LWS_PRE + size] = '\0';
-					printtext(server, NULL, MSGLEVEL_CRAP, "T: %s", buffer + LWS_PRE);
-					lws_write(wsi, (unsigned char *)buffer + LWS_PRE, size, LWS_WRITE_TEXT);
-					free(buffer);
+					char *buffer = g_malloc0(LWS_PRE + size + 1) + LWS_PRE;
+					json_dumpb(json, buffer, size, 0);
+					signal_emit("rocketchat json out", 2, server, buffer);
+					lws_write(wsi, (unsigned char *)buffer, size, LWS_WRITE_TEXT);
+					free(buffer - LWS_PRE);
 				}
 				json_decref(json);
 			}
@@ -194,126 +313,20 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 			if (!remaining && lws_is_final_fragment(wsi)) {
 				g_string_append_len(server->buffer, in, len);
 
-				printtext(server, NULL, MSGLEVEL_CRAP, "R: %s", server->buffer->str);
+				signal_emit("rocketchat json in", 2, server, server->buffer->str);
 				json = json_loadb(server->buffer->str, server->buffer->len, 0, &json_error);
 				g_string_truncate(server->buffer, 0);
 				if (!json) {
-					printtext(server, NULL, MSGLEVEL_CRAP, "json error: %s", json_error.text);
+					printtext(server, NULL, MSGLEVEL_CLIENTERROR, "json error: %s", json_error.text);
 					break;
 				}
 
 				json_msg = json_object_get(json, "msg");
 				if (json_msg) {
 					const char *msg = json_string_value(json_msg);
-					if (!strcmp("ping", msg)) {
-						json_t *message = json_object();
-						json_object_set_new(message, "msg", json_string("pong"));
-						g_queue_push_tail(server->message_queue, message);
-						lws_callback_on_writable(wsi);
-					} else if (!strcmp("connected", msg)) {
-						json_t *credential = json_object();
-						json_object_set_new(credential, "resume", json_string(server->connrec->password));
-
-						json_t *params = json_array();
-						json_array_append_new(params, credential);
-
-						json_t *message = json_object();
-						json_object_set_new(message, "msg", json_string("method"));
-						json_object_set_new(message, "method", json_string("login"));
-						json_object_set_new(message, "id", json_string("login"));
-						json_object_set_new(message, "params", params);
-
-						g_queue_push_tail(server->message_queue, message);
-						lws_callback_on_writable(wsi);
-					} else if (!strcmp("result", msg)) {
-						const char *id = json_string_value(json_object_get(json, "id"));
-						if (!strcmp(id, "login")) {
-							json_t *result = json_object_get(json, "result");
-							if (result) {
-								// Login successful !
-								json_t *param = json_object();
-								json_object_set_new(param, "$date", json_integer(0));
-
-								json_t *params = json_array();
-								json_array_append_new(params, param);
-
-								json_t *message = json_object();
-								json_object_set_new(message, "msg", json_string("method"));
-								json_object_set_new(message, "method", json_string("rooms/get"));
-								json_object_set_new(message, "id", json_string("rooms/get"));
-								json_object_set_new(message, "params", params);
-
-								g_queue_push_tail(server->message_queue, message);
-								lws_callback_on_writable(wsi);
-							}
-						} else if (!strcmp(id, "rooms/get")) {
-							json_t *result = json_object_get(json, "result");
-							json_t *update = json_object_get(result, "update");
-							json_t *value;
-							size_t index;
-							json_array_foreach(update, index, value) {
-								const char *rid = json_string_value(json_object_get(value, "_id"));
-								const char *name = json_string_value(json_object_get(value, "name"));
-								const char *fname = json_string_value(json_object_get(value, "fname"));
-								char *room_name;
-								if (fname) {
-									room_name = g_strjoin("#", fname, NULL);
-								} else if (name) {
-									room_name = g_strjoin("#", name, NULL);
-								} else {
-									json_t *usernames = json_object_get(value, "usernames");
-									gchar **usernames_str = g_new0(gchar *, json_array_size(usernames));
-									size_t i, j = 0;
-									json_t *username;
-									json_array_foreach(usernames, i, username) {
-										if (strcmp(json_string_value(username), server->nick)) {
-											usernames_str[j] = json_string_value(username);
-											j++;
-										}
-									}
-									room_name = g_strjoinv(",", usernames_str);
-								}
-								CHANNEL_REC *channel = g_new0(CHANNEL_REC, 1);
-								channel->chat_type = ROCKETCHAT_PROTOCOL;
-								channel_init(channel, (SERVER_REC *)server, rid, room_name, TRUE);
-								g_free(room_name);
-
-								json_t *params = json_array();
-								json_array_append_new(params, json_string(rid));
-								json_array_append_new(params, json_false());
-								json_t *message = json_object();
-								json_object_set_new(message, "msg", json_string("sub"));
-								json_object_set_new(message, "id", json_sprintf("sub-stream-room-messages-%s", rid));
-								json_object_set_new(message, "name", json_string("stream-room-messages"));
-								json_object_set_new(message, "params", params);
-								g_queue_push_tail(server->message_queue, message);
-							}
-							lws_callback_on_writable(wsi);
-						}
-					} else if (!strcmp(msg, "added")) {
-						const char *collection = json_string_value(json_object_get(json, "collection"));
-						if (!strcmp(collection, "users")) {
-							json_t *fields = json_object_get(json, "fields");
-							g_free(server->nick);
-							server->nick = g_strdup(json_string_value(json_object_get(fields, "username")));
-						}
-					} else if (!strcmp(msg, "changed")) {
-						const char *collection = json_string_value(json_object_get(json, "collection"));
-						if (!strcmp(collection, "stream-room-messages")) {
-							json_t *fields = json_object_get(json, "fields");
-							json_t *args = json_object_get(fields, "args");
-							json_t *message = json_array_get(args, 0);
-							json_t *replies = json_object_get(message, "replies");
-							json_t *reactions = json_object_get(message, "reactions");
-							json_t *editedAt = json_object_get(message, "editedAt");
-							json_t *t = json_object_get(message, "t");
-							if (!replies && !reactions && !editedAt && !t) {
-								const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
-								const char *rid = json_string_value(json_object_get(message, "rid"));
-								signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, NULL, rid);
-							}
-						}
-					}
+					char *signal = g_strconcat("rocketchat recv ", msg, NULL);
+					signal_emit(signal, 2, server, json);
+					g_free(signal);
 				}
 				json_decref(json);
 			} else {
@@ -322,8 +335,14 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 		}
 		break;
 
-		default:
+		case LWS_CALLBACK_CLIENT_RECEIVE_PONG:
+		case LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH:
+		case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
+		case LWS_CALLBACK_WSI_CREATE:
 			break;
+
+		default:
+			printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Unhandled lws callback reason: %d", reason);
 	}
 
 	return 0;
@@ -336,7 +355,7 @@ static const struct lws_protocols protocols[] = {
 
 static void rocketchat_lws_log_emit (int level, const char *line)
 {
-	printtext(NULL, NULL, MSGLEVEL_CRAP, line);
+	printtext(NULL, NULL, MSGLEVEL_CLIENTCRAP, line);
 }
 
 static void
@@ -427,6 +446,12 @@ void rocketchat_core_init(void)
 	chat_protocol_register(chat_protocol);
 	g_free(chat_protocol);
 
+	signal_add("rocketchat recv ping", sig_recv_ping);
+	signal_add("rocketchat recv connected", sig_recv_connected);
+	signal_add("rocketchat recv result", sig_recv_result);
+	signal_add("rocketchat recv added", sig_recv_added);
+	signal_add("rocketchat recv changed", sig_recv_changed);
+
 	rocketchat_servers_init();
 
 	module_register("rocketchat", "core");
@@ -434,6 +459,12 @@ void rocketchat_core_init(void)
 
 void rocketchat_core_deinit(void)
 {
+	signal_remove("rocketchat recv ping", sig_recv_ping);
+	signal_remove("rocketchat recv connected", sig_recv_connected);
+	signal_remove("rocketchat recv result", sig_recv_result);
+	signal_remove("rocketchat recv added", sig_recv_added);
+	signal_remove("rocketchat recv changed", sig_recv_changed);
+
 	rocketchat_servers_deinit();
 
 	signal_emit("chat protocol deinit", 1, chat_protocol_find(ROCKETCHAT_PROTOCOL_NAME));
