@@ -292,10 +292,11 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 		case LWS_CALLBACK_CLIENT_WRITEABLE:
 			json = g_queue_pop_head(server->message_queue);
 			if (json) {
-				size_t size = json_dumpb(json, NULL, 0, 0);
+				size_t flags = JSON_COMPACT;
+				size_t size = json_dumpb(json, NULL, 0, flags);
 				if (size != 0) {
 					char *buffer = g_malloc0(LWS_PRE + size + 1) + LWS_PRE;
-					json_dumpb(json, buffer, size, 0);
+					json_dumpb(json, buffer, size, flags);
 					signal_emit("rocketchat json out", 2, server, buffer);
 					lws_write(wsi, (unsigned char *)buffer, size, LWS_WRITE_TEXT);
 					free(buffer - LWS_PRE);
