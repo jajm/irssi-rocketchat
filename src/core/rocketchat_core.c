@@ -45,8 +45,11 @@ static void result_cb_rooms_get(ROCKETCHAT_SERVER_REC *server, json_t *json)
 		}
 		CHANNEL_REC *channel = g_new0(CHANNEL_REC, 1);
 		channel->chat_type = ROCKETCHAT_PROTOCOL;
-		channel_init(channel, (SERVER_REC *)server, rid, room_name, TRUE);
+		channel->joined = TRUE;
+		channel_init(channel, (SERVER_REC *)server, rid, NULL, TRUE);
+		channel_change_visible_name(channel, room_name);
 		g_free(room_name);
+		signal_emit("channel joined", 1, channel);
 
 		json_t *params = json_array();
 		json_array_append_new(params, json_string(rid));
