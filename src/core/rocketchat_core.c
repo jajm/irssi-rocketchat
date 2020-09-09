@@ -137,14 +137,42 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 {
 	const char *collection = json_string_value(json_object_get(json, "collection"));
 	if (!strcmp(collection, "stream-room-messages")) {
+		gboolean isNew = TRUE;
+
 		json_t *fields = json_object_get(json, "fields");
 		json_t *args = json_object_get(fields, "args");
 		json_t *message = json_array_get(args, 0);
-		json_t *replies = json_object_get(message, "replies");
-		json_t *reactions = json_object_get(message, "reactions");
-		json_t *editedAt = json_object_get(message, "editedAt");
-		json_t *t = json_object_get(message, "t");
-		if (!replies && !reactions && !editedAt && !t) {
+
+		if (NULL != json_object_get(message, "replies")) {
+			isNew = FALSE;
+		}
+
+		if (NULL != json_object_get(message, "reactions")) {
+			isNew = FALSE;
+		}
+
+		if (NULL != json_object_get(message, "editedAt")) {
+			isNew = FALSE;
+		}
+
+		if (NULL != json_object_get(message, "t")) {
+			isNew = FALSE;
+		}
+
+		json_t *urls = json_object_get(message, "urls");
+		if (isNew && urls) {
+			json_t *value;
+			size_t index;
+			json_array_foreach(urls, index, value) {
+				json_t *parsedUrl = json_object_get(value, "parsedUrl");
+				if (parsedUrl) {
+					isNew = FALSE;
+					break;
+				}
+			}
+		}
+
+		if (isNew) {
 			const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
 			const char *rid = json_string_value(json_object_get(message, "rid"));
 			signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, NULL, rid);
