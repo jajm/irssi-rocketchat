@@ -1,7 +1,7 @@
 #ifndef __ROCKETCHAT_SERVERS_H
 #define __ROCKETCHAT_SERVERS_H
 
-#include "module.h"
+#include "rocketchat.h"
 #include "servers.h"
 #include "chat-protocols.h"
 
@@ -18,6 +18,7 @@ struct _ROCKETCHAT_SERVER_REC {
 	GQueue *message_queue;
 	GString *buffer;
 	GHashTable *result_callbacks;
+	char *userId;
 };
 
 void rocketchat_servers_init(void);
