@@ -14,16 +14,28 @@ waiting 2 seconds to autocomplete a nick
 
 * login using an authentication token (you need to log in using a web browser
   to generate a token)
-* receive/send messages from/to rooms that are already opened (you will need a
-  web browser to join/leave rooms)
+* list public channels
+* list users
+* join an existing room (public/private channel, discussion, direct message).
+  leaving a room is not implemented
+* receive/send messages from/to rooms
+* automatic join to rooms when a message is received
+* room history: the last 10 messages are loaded when joining a room
+* nicklist
+
+## TODO
+
+* Use queries when possible. For now every room is a channel, even direct message between two users.
+* Allow to use the name of the room instead of its ID when joining
+* Add '@' prefix when completing nicks
 
 ## Installation
 
 ### Requirements
 
-* [glib]
-* [Jansson] (>= 2.11)
-* [libwebsockets] (>= 4.1) with glib support
+* [glib](https://developer.gnome.org/glib/)
+* [Jansson](https://digip.org/jansson/) (>= 2.11)
+* [libwebsockets](https://libwebsockets.org/) (>= 4.1) with glib support
 
 For glib and jansson you can use your package manager.
 
@@ -95,9 +107,29 @@ Then open irssi and enter the following commands:
 /connect MyRocketChat
 ```
 
-Several windows should open, you can now start chatting!
+Once connected you can list public channels
+
+```
+/rocketchat channels
+```
+
+```
+foo (ID: aQhQEXsMuoS439dGS)
+general (ID: GENERAL)
+test (ID: 497BsckNzoaT2PeMF)
+```
+
+and join one or more using their ID
+
+```
+/join aQhQEXsMuoS439dGS,GENERAL,497BsckNzoaT2PeMF
+```
+
+To automatically join a room when connected to the server you can add it to
+your channels list
+
+```
+/channel add -auto 497BsckNzoaT2PeMF MyRocketChat
+```
 
 [Rocket.Chat]: https://rocket.chat/
-[glib]: https://developer.gnome.org/glib/
-[Jansson]: https://digip.org/jansson/
-[libwebsockets]: https://libwebsockets.org/
