@@ -510,12 +510,6 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 	json_t *json, *json_msg;
 	json_error_t json_error;
 
-	printtext(NULL, NULL, MSGLEVEL_CLIENTCRAP, "reason: %d", reason);
-
-	//if (reason == LWS_CALLBACK_PROTOCOL_INIT || reason == LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED || reason == LWS_CALLBACK_WSI_CREATE) {
-	//	return 0;
-	//}
-
 	server = lws_get_opaque_user_data(wsi);
 
 	if (!server) {
