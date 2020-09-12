@@ -4,6 +4,7 @@
 #include "printtext.h"
 #include "levels.h"
 #include "channels.h"
+#include "nicklist.h"
 #include "rocketchat-servers.h"
 #include "rocketchat-protocol.h"
 #include "rocketchat-result-callbacks.h"
@@ -105,12 +106,53 @@ static void sig_channel_joined(CHANNEL_REC *channel)
 	rocketchat_call(server, "loadHistory", params, callback);
 }
 
+static void sig_complete_word(GList **complist, WINDOW_REC *window, char *word, char *linestart, int *want_space)
+{
+	ROCKETCHAT_SERVER_REC *server;
+	CHANNEL_REC *channel;
+	NICK_REC *nick;
+	GSList *nicks, *tmp;
+
+	server = (ROCKETCHAT_SERVER_REC *)window->active_server;
+	if (!IS_ROCKETCHAT_SERVER(server)) {
+		return;
+	}
+
+	channel = CHANNEL(window->active);
+	if (!channel) {
+		return;
+	}
+
+	nicks = nicklist_getnicks(channel);
+	for (tmp = nicks; tmp != NULL; tmp = tmp->next) {
+		nick = tmp->data;
+		if (g_str_has_prefix(nick->nick, word)) {
+			*complist = g_list_append(*complist, g_strdup(nick->nick));
+			if (*linestart != '/') {
+				*complist = g_list_append(*complist, g_strconcat("@", nick->nick, NULL));
+			}
+		}
+	}
+
+	if (g_str_has_prefix("here", word)) {
+		*complist = g_list_append(*complist, g_strdup("@here"));
+	}
+	if (g_str_has_prefix("all", word)) {
+		*complist = g_list_append(*complist, g_strdup("@all"));
+	}
+
+	if (*complist != NULL) {
+		signal_stop();
+	}
+}
+
 void fe_rocketchat_init(void)
 {
 	signal_add("rocketchat json out", sig_json_out);
 	signal_add("rocketchat json in", sig_json_in);
 	signal_add("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
 	signal_add("channel joined", sig_channel_joined);
+	signal_add("complete word", sig_complete_word);
 
 	fe_rocketchat_commands_init();
 
@@ -125,6 +167,7 @@ void fe_rocketchat_deinit(void)
 	signal_remove("rocketchat json in", sig_json_in);
 	signal_remove("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
 	signal_remove("channel joined", sig_channel_joined);
+	signal_remove("complete word", sig_complete_word);
 }
 
 #ifdef IRSSI_ABI_VERSION

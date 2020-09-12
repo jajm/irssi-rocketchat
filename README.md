@@ -27,7 +27,6 @@ waiting 2 seconds to autocomplete a nick
 
 * Use queries when possible. For now every room is a channel, even direct message between two users.
 * Allow to use the name of the room instead of its ID when joining
-* Add '@' prefix when completing nicks
 
 ## Installation
 
