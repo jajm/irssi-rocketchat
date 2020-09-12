@@ -10,10 +10,10 @@
 #define command_bind_rocketchat(cmd, category, func) \
 	command_bind_proto(cmd, ROCKETCHAT_PROTOCOL, category, func)
 
-static void result_cb_channelsList(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
+static void result_cb_browseChannels(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
 {
 	json_t *error, *result, *channels, *channel;
-	const char *id, *name, *t;
+	const char *id, *name, *fname;
 	size_t index;
 
 	error = json_object_get(json, "error");
@@ -22,35 +22,67 @@ static void result_cb_channelsList(ROCKETCHAT_SERVER_REC *server, json_t *json, 
 	}
 
 	result = json_object_get(json, "result");
-	channels = json_object_get(result, "channels");
+	channels = json_object_get(result, "results");
 	json_array_foreach(channels, index, channel) {
 		id = json_string_value(json_object_get(channel, "_id"));
 		name = json_string_value(json_object_get(channel, "name"));
-		t = json_string_value(json_object_get(channel, "t"));
+		fname = json_string_value(json_object_get(channel, "fname"));
 
-		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "%s %s (%s)", id, name, *t == 'p' ? "private" : "public");
+		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "%s (ID: %s)", fname ? fname : name, id);
 	}
 }
 
 static void cmd_rocketchat_channels(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
 {
 	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
-	json_t *params;
+	json_t *params, *param;
+
+	param = json_object();
+	json_object_set_new(param, "page", json_integer(0));
+	json_object_set_new(param, "offset", json_integer(0));
+	json_object_set_new(param, "limit", json_integer(100));
 
 	params = json_array();
-	json_array_append(params, json_string(""));
-	json_array_append(params, json_string(""));
+	json_array_append_new(params, param);
 
-	callback = rocketchat_result_callback_new(result_cb_channelsList, NULL);
-	rocketchat_call(server, "channelsList", params, callback);
+	callback = rocketchat_result_callback_new(result_cb_browseChannels, NULL);
+	rocketchat_call(server, "browseChannels", params, callback);
+}
+
+static void cmd_rocketchat_users(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
+{
+	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
+	json_t *params, *param;
+	void *free_arg;
+	char *text;
+
+	if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_GETREST, &text)) {
+		return;
+	}
+
+	param = json_object();
+	json_object_set_new(param, "text", json_string(text));
+	json_object_set_new(param, "workspace", json_string("all"));
+	json_object_set_new(param, "type", json_string("users"));
+	json_object_set_new(param, "page", json_integer(0));
+	json_object_set_new(param, "offset", json_integer(0));
+	json_object_set_new(param, "limit", json_integer(100));
+
+	params = json_array();
+	json_array_append_new(params, param);
+
+	callback = rocketchat_result_callback_new(result_cb_browseChannels, NULL);
+	rocketchat_call(server, "browseChannels", params, callback);
 }
 
 void fe_rocketchat_commands_init(void)
 {
 	command_bind_rocketchat("rocketchat channels", NULL, (SIGNAL_FUNC)cmd_rocketchat_channels);
+	command_bind_rocketchat("rocketchat users", NULL, (SIGNAL_FUNC)cmd_rocketchat_users);
 }
 
 void fe_rocketchat_commands_deinit(void)
 {
 	command_unbind("rocketchat channels", (SIGNAL_FUNC)cmd_rocketchat_channels);
+	command_unbind("rocketchat users", (SIGNAL_FUNC)cmd_rocketchat_users);
 }

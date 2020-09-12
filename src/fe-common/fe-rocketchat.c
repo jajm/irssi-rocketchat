@@ -20,46 +20,6 @@ static void sig_json_in(ROCKETCHAT_SERVER_REC *server, const char *json)
 	printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Rx: %s", json);
 }
 
-static void sig_recv_result_spotlight(ROCKETCHAT_SERVER_REC *server, json_t *json)
-{
-	json_t *result, *users, *user, *rooms, *room;
-	size_t index;
-	GString *out;
-
-	out = g_string_new(NULL);
-	result = json_object_get(json, "result");
-
-	users = json_object_get(result, "users");
-	if (json_array_size(users) > 0) {
-		g_string_append(out, "Users:\n");
-		json_array_foreach(users, index, user) {
-			const char *id = json_string_value(json_object_get(user, "_id"));
-			const char *username = json_string_value(json_object_get(user, "username"));
-			const char *name = json_string_value(json_object_get(user, "name"));
-
-			g_string_append_printf(out, " %s %s (%s)\n", id, username, name);
-		}
-	}
-
-	rooms = json_object_get(result, "rooms");
-	if (json_array_size(rooms) > 0) {
-		g_string_append(out, "Rooms:\n");
-		json_array_foreach(rooms, index, room) {
-			const char *id = json_string_value(json_object_get(room, "_id"));
-			const char *name = json_string_value(json_object_get(room, "name"));
-
-			g_string_append_printf(out, " %s %s\n", id, name);
-		}
-	}
-
-	if (json_array_size(users) == 0 && json_array_size(rooms) == 0) {
-		g_string_append(out, "No results");
-	}
-
-	printtext(server, NULL, MSGLEVEL_CRAP, out->str);
-	g_string_free(out, TRUE);
-}
-
 static void sig_recv_result_subscriptions(ROCKETCHAT_SERVER_REC *server, json_t *json)
 {
 	json_t *result, *subscription;
@@ -149,7 +109,6 @@ void fe_rocketchat_init(void)
 {
 	signal_add("rocketchat json out", sig_json_out);
 	signal_add("rocketchat json in", sig_json_in);
-	signal_add("rocketchat recv result spotlight", sig_recv_result_spotlight);
 	signal_add("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
 	signal_add("channel joined", sig_channel_joined);
 
@@ -164,7 +123,6 @@ void fe_rocketchat_deinit(void)
 
 	signal_remove("rocketchat json out", sig_json_out);
 	signal_remove("rocketchat json in", sig_json_in);
-	signal_remove("rocketchat recv result spotlight", sig_recv_result_spotlight);
 	signal_remove("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
 	signal_remove("channel joined", sig_channel_joined);
 }
