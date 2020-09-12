@@ -20,6 +20,21 @@
 #include "libwebsockets.h"
 #include "jansson.h"
 
+static void result_cb_sendMessage(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
+{
+	json_t *error, *result;
+	const char *message_id;
+
+	error = json_object_get(json, "error");
+	if (error) {
+		return;
+	}
+
+	result = json_object_get(json, "result");
+	message_id = json_string_value(json_object_get(result, "_id"));
+	g_hash_table_insert(server->sent_messages, g_strdup(message_id), NULL);
+}
+
 static void result_cb_get_subscriptions_after_login(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
 {
 	json_t *result, *subscription;
@@ -155,6 +170,8 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 	const char *collection = json_string_value(json_object_get(json, "collection"));
 	if (!strcmp(collection, "stream-room-messages")) {
 		gboolean isNew = TRUE;
+		gboolean isOwn;
+		const char *message_id;
 
 		json_t *fields = json_object_get(json, "fields");
 		json_t *args = json_object_get(fields, "args");
@@ -189,9 +206,14 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 			}
 		}
 
-		if (isNew) {
-			const char *nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
-			const char *rid = json_string_value(json_object_get(message, "rid"));
+		message_id = json_string_value(json_object_get(message, "_id"));
+		isOwn = g_hash_table_remove(server->sent_messages, message_id);
+
+		if (isNew && !isOwn) {
+			const char *nick, *rid;
+
+			nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
+			rid = json_string_value(json_object_get(message, "rid"));
 			if (!channel_find((SERVER_REC *)server, rid)) {
 				server->channels_join((SERVER_REC *)server, rid, TRUE);
 			} else {
@@ -211,6 +233,9 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 				subscription = json_array_get(args, 1);
 				roomId = json_string_value(json_object_get(subscription, "rid"));
 				rocketchat_subscribe(server, "stream-room-messages", roomId);
+				if (!channel_find((SERVER_REC *)server, roomId)) {
+					server->channels_join((SERVER_REC *)server, roomId, TRUE);
+				}
 			} else if (!strcmp(arg1, "removed")) {
 				subscription = json_array_get(args, 1);
 				roomId = json_string_value(json_object_get(subscription, "rid"));
@@ -440,6 +465,7 @@ static void
 rocketchat_send_message(SERVER_REC *server_rec, const char *target, const char *msg, int target_type)
 {
 	ROCKETCHAT_SERVER_REC *server = (ROCKETCHAT_SERVER_REC *)server_rec;
+	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
 	json_t *message, *params;
 
 	message = json_object();
@@ -449,7 +475,8 @@ rocketchat_send_message(SERVER_REC *server_rec, const char *target, const char *
 	params = json_array();
 	json_array_append_new(params, message);
 
-	rocketchat_call(server, "sendMessage", params, NULL);
+	callback = rocketchat_result_callback_new(result_cb_sendMessage, NULL);
+	rocketchat_call(server, "sendMessage", params, callback);
 }
 
 static SERVER_REC *

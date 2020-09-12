@@ -18,6 +18,7 @@ struct _ROCKETCHAT_SERVER_REC {
 	GQueue *message_queue;
 	GString *buffer;
 	GHashTable *result_callbacks;
+	GHashTable *sent_messages;
 	char *userId;
 };
 
