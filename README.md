@@ -59,6 +59,7 @@ mkdir build && cd build
 cmake -DLWS_WITH_GLIB=1 .. && make
 # as root
 make install
+ldconfig
 ```
 
 ### Building
