@@ -96,9 +96,9 @@ static void result_cb_loadHistory(ROCKETCHAT_SERVER_REC *server, json_t *json, j
 
 		ts = json_integer_value(json_object_get(json_object_get(message, "ts"), "$date"));
 		datetime = g_date_time_new_from_unix_local(ts / 1000);
-		datetime_formatted = g_date_time_format(datetime, "%F %T");
+		datetime_formatted = g_date_time_format(datetime, "%c");
 
-		text = g_strdup_printf("[%s] <%s> %s", datetime_formatted, username, msg);
+		text = g_strdup_printf("<%s> %s (%s)", username, msg, datetime_formatted);
 		printtext(server, rid, MSGLEVEL_CLIENTCRAP, text);
 
 		g_free(text);
