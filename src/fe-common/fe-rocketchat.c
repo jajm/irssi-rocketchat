@@ -149,7 +149,7 @@ static void sig_complete_word(GList **complist, WINDOW_REC *window, char *word, 
 	nicks = nicklist_getnicks(channel);
 	for (tmp = nicks; tmp != NULL; tmp = tmp->next) {
 		nick = tmp->data;
-		if (g_str_has_prefix(nick->nick, word)) {
+		if (0 == g_ascii_strncasecmp(nick->nick, word, strlen(word))) {
 			*complist = g_list_append(*complist, g_strdup(nick->nick));
 			if (*linestart != '/') {
 				*complist = g_list_append(*complist, g_strconcat("@", nick->nick, NULL));
