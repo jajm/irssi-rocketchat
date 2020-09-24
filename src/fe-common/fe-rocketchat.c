@@ -23,6 +23,7 @@
 #include "levels.h"
 #include "channels.h"
 #include "nicklist.h"
+#include "settings.h"
 #include "rocketchat-servers.h"
 #include "rocketchat-protocol.h"
 #include "rocketchat-result-callbacks.h"
@@ -31,12 +32,16 @@
 
 static void sig_json_out(ROCKETCHAT_SERVER_REC *server, const char *json)
 {
-	printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Tx: %s", json);
+	if (settings_get_bool("rocketchat_debug")) {
+		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Tx: %s", json);
+	}
 }
 
 static void sig_json_in(ROCKETCHAT_SERVER_REC *server, const char *json)
 {
-	printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Rx: %s", json);
+	if (settings_get_bool("rocketchat_debug")) {
+		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Rx: %s", json);
+	}
 }
 
 static void sig_recv_result_subscriptions(ROCKETCHAT_SERVER_REC *server, json_t *json)
@@ -171,6 +176,8 @@ void fe_rocketchat_init(void)
 	signal_add("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
 	signal_add("channel joined", sig_channel_joined);
 	signal_add("complete word", sig_complete_word);
+
+	settings_add_bool("rocketchat", "rocketchat_debug", FALSE);
 
 	fe_rocketchat_commands_init();
 
