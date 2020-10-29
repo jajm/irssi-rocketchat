@@ -26,6 +26,7 @@
 #include "settings.h"
 #include "rocketchat-servers.h"
 #include "rocketchat-protocol.h"
+#include "rocketchat-message.h"
 #include "rocketchat-result-callbacks.h"
 #include "fe-rocketchat-commands.h"
 #include "jansson.h"
@@ -83,25 +84,24 @@ static void result_cb_loadHistory(ROCKETCHAT_SERVER_REC *server, json_t *json, j
 	messages = json_object_get(result, "messages");
 
 	for (index = json_array_size(messages); index > 0; index--) {
-		const char *rid, *username, *msg;
+		const char *rid, *username;
 		GDateTime *datetime;
-		char *text, *datetime_formatted;
+		char *msg, *datetime_formatted;
 		json_int_t ts;
 
 		message = json_array_get(messages, index - 1);
 
 		rid = json_string_value(json_object_get(message, "rid"));
 		username = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
-		msg = json_string_value(json_object_get(message, "msg"));
+		msg = rocketchat_format_message(server, message);
 
 		ts = json_integer_value(json_object_get(json_object_get(message, "ts"), "$date"));
 		datetime = g_date_time_new_from_unix_local(ts / 1000);
 		datetime_formatted = g_date_time_format(datetime, "%c");
 
-		text = g_strdup_printf("<%s> %s (%s)", username, msg, datetime_formatted);
-		printtext(server, rid, MSGLEVEL_CLIENTCRAP, text);
+		printtext(server, rid, MSGLEVEL_CLIENTCRAP, "<%s> %s (%s)", username, msg, datetime_formatted);
 
-		g_free(text);
+		g_free(msg);
 		g_free(datetime_formatted);
 		g_date_time_unref(datetime);
 	}

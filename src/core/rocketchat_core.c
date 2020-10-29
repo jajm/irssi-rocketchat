@@ -35,6 +35,7 @@
 #include "rocketchat-commands.h"
 #include "rocketchat-result-callbacks.h"
 #include "rocketchat-protocol.h"
+#include "rocketchat-message.h"
 #include "libwebsockets.h"
 #include "jansson.h"
 
@@ -235,7 +236,13 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 			if (!channel_find((SERVER_REC *)server, rid)) {
 				server->channels_join((SERVER_REC *)server, rid, TRUE);
 			} else {
-				signal_emit("message public", 5, server, json_string_value(json_object_get(message, "msg")), nick, server->connrec->address, rid);
+				char *msg;
+
+				msg = rocketchat_format_message(server, message);
+				if (msg != NULL) {
+					signal_emit("message public", 5, server, msg, nick, server->connrec->address, rid);
+					g_free(msg);
+				}
 			}
 		}
 	} else if (!strcmp(collection, "stream-notify-user")) {
