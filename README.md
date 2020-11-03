@@ -32,25 +32,19 @@ waiting 2 seconds to autocomplete a nick
 
 ### Requirements
 
+* [CMake](https://cmake.org)
 * irssi development files
 * [glib](https://developer.gnome.org/glib/)
 * [Jansson](https://digip.org/jansson/) (>= 2.11)
 * [libwebsockets](https://libwebsockets.org/) (>= 4.1) with glib support
 
-For irssi development files, glib and jansson you can use your package manager.
+For cmake, irssi development files, glib and jansson you can use your package manager.
 
 ```sh
-apt-get install irssi-dev libglib2.0-dev libjansson-dev
+apt-get install cmake irssi-dev libglib2.0-dev libjansson-dev
 ```
 
 But you will need to build libwebsockets from source.
-
-Install cmake first if you don't have it.
-```
-apt-get install cmake
-```
-
-Then proceed to build libwebsockets.
 
 ```sh
 git clone -b v4.1-stable https://libwebsockets.org/repo/libwebsockets
@@ -68,7 +62,8 @@ Once all dependencies are installed, build and install irssi-rocketchat
 
 ```sh
 cd /path/to/irssi-rocketchat
-make && make install
+mkdir build && cd build
+cmake .. && make && make install
 ```
 
 This will install irssi-rocketchat in ~/.irssi/modules
