@@ -15,7 +15,7 @@ char * rocketchat_format_message(ROCKETCHAT_SERVER_REC *server, json_t *message)
 		if (json_is_array(attachments) && json_array_size(attachments) > 0) {
 			json_t *attachment;
 			const char *title_link;
-			gchar *port, *url;
+			gchar *port;
 
 			attachment = json_array_get(attachments, 0);
 			title_link = json_string_value(json_object_get(attachment, "title_link"));
