@@ -22,6 +22,7 @@
 #include "levels.h"
 #include "rocketchat-servers.h"
 #include "rocketchat-result-callbacks.h"
+#include "rocketchat-room.h"
 #include "jansson.h"
 #include "libwebsockets.h"
 
@@ -37,6 +38,7 @@ static void sig_server_connected(ROCKETCHAT_SERVER_REC *server)
 	server->buffer = g_string_new(NULL);
 	server->result_callbacks = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)rocketchat_result_callback_free);
 	server->sent_messages = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+	server->rooms = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)rocketchat_room_free);
 
 	support = json_array();
 	json_array_append_new(support, json_string("1"));
@@ -77,6 +79,9 @@ static void sig_server_destroyed(ROCKETCHAT_SERVER_REC *server)
 
 	g_hash_table_destroy(server->sent_messages);
 	server->sent_messages = NULL;
+
+	g_hash_table_destroy(server->rooms);
+	server->rooms = NULL;
 
 	lws_set_opaque_user_data(server->wsi, NULL);
 

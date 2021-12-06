@@ -70,63 +70,9 @@ static void sig_recv_result_subscriptions(ROCKETCHAT_SERVER_REC *server, json_t 
 	g_string_free(out, TRUE);
 }
 
-static void result_cb_loadHistory(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
+static void sig_error(ROCKETCHAT_SERVER_REC *server, const char *target, const char *msg)
 {
-	json_t *error, *result, *messages, *message;
-	size_t index;
-
-	error = json_object_get(json, "error");
-	if (error) {
-		return;
-	}
-
-	result = json_object_get(json, "result");
-	messages = json_object_get(result, "messages");
-
-	for (index = json_array_size(messages); index > 0; index--) {
-		const char *rid, *username;
-		GDateTime *datetime;
-		char *msg, *datetime_formatted;
-		json_int_t ts;
-
-		message = json_array_get(messages, index - 1);
-
-		rid = json_string_value(json_object_get(message, "rid"));
-		username = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
-		msg = rocketchat_format_message(server, message);
-
-		ts = json_integer_value(json_object_get(json_object_get(message, "ts"), "$date"));
-		datetime = g_date_time_new_from_unix_local(ts / 1000);
-		datetime_formatted = g_date_time_format(datetime, "%c");
-
-		printtext(server, rid, MSGLEVEL_CLIENTCRAP, "<%s> %s (%s)", username, msg, datetime_formatted);
-
-		g_free(msg);
-		g_free(datetime_formatted);
-		g_date_time_unref(datetime);
-	}
-}
-
-static void sig_channel_joined(CHANNEL_REC *channel)
-{
-	json_t *params;
-	ROCKETCHAT_SERVER_REC *server;
-	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
-
-	if (!IS_ROCKETCHAT_SERVER(channel->server)) {
-		return;
-	}
-
-	server = (ROCKETCHAT_SERVER_REC *)channel->server;
-
-	params = json_array();
-	json_array_append(params, json_string(channel->name));
-	json_array_append(params, json_null());
-	json_array_append(params, json_integer(10));
-	json_array_append(params, json_null());
-
-	callback = rocketchat_result_callback_new(result_cb_loadHistory, NULL);
-	rocketchat_call(server, "loadHistory", params, callback);
+	printtext(server, target, MSGLEVEL_CRAP, msg);
 }
 
 static void sig_complete_word(GList **complist, WINDOW_REC *window, char *word, char *linestart, int *want_space)
@@ -174,7 +120,7 @@ void fe_rocketchat_init(void)
 	signal_add("rocketchat json out", sig_json_out);
 	signal_add("rocketchat json in", sig_json_in);
 	signal_add("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
-	signal_add("channel joined", sig_channel_joined);
+	signal_add("rocketchat error", sig_error);
 	signal_add("complete word", sig_complete_word);
 
 	settings_add_bool("rocketchat", "rocketchat_debug", FALSE);
@@ -191,7 +137,7 @@ void fe_rocketchat_deinit(void)
 	signal_remove("rocketchat json out", sig_json_out);
 	signal_remove("rocketchat json in", sig_json_in);
 	signal_remove("rocketchat recv result subscriptions", sig_recv_result_subscriptions);
-	signal_remove("channel joined", sig_channel_joined);
+	signal_remove("rocketchat error", sig_error);
 	signal_remove("complete word", sig_complete_word);
 }
 

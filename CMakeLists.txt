@@ -24,7 +24,7 @@ target_include_directories(rocketchat_core PRIVATE
     ${LIBWEBSOCKETS_INCLUDE_DIRS}
     ${JANSSON_INCLUDE_DIRS})
 target_compile_definitions(rocketchat_core PRIVATE -DUOFF_T_LONG)
-target_compile_options(rocketchat_core PRIVATE -Wall -Werror)
+target_compile_options(rocketchat_core PRIVATE -Wall -Werror -Wno-error=deprecated-declarations)
 target_link_directories(rocketchat_core PRIVATE
     ${GLIB_LIBRARY_DIRS}
     ${LIBWEBSOCKETS_LIBRARY_DIRS}
@@ -43,7 +43,7 @@ target_include_directories(fe_rocketchat PRIVATE
     ${LIBWEBSOCKETS_INCLUDE_DIRS}
     ${JANSSON_INCLUDE_DIRS})
 target_compile_definitions(fe_rocketchat PRIVATE -DUOFF_T_LONG)
-target_compile_options(fe_rocketchat PRIVATE -Wall -Werror)
+target_compile_options(fe_rocketchat PRIVATE -Wall -Werror -Wno-error=deprecated-declarations)
 target_link_directories(fe_rocketchat PRIVATE
     ${GLIB_LIBRARY_DIRS}
     ${LIBWEBSOCKETS_LIBRARY_DIRS}

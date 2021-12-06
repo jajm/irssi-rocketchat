@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added support for queries for direct message between two users
+- Added command `/rocketchat history`
+
+### Changed
+
+- History is no longer loaded automatically (use command `/rocketchat history`)
+
 ## [0.2.0] - 2020-10-29
 
 ### Added

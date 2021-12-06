@@ -18,15 +18,11 @@ waiting 2 seconds to autocomplete a nick
 * list users
 * join an existing room (public/private channel, discussion, direct message).
   leaving a room is not implemented
+* create direct message using `/query <nick>`
 * receive/send messages from/to rooms
 * automatic join to rooms when a message is received
-* room history: the last 10 messages are loaded when joining a room
+* room history: the last 10 messages can be loaded using `/rocketchat history`
 * nicklist
-
-## TODO
-
-* Use queries when possible. For now every room is a channel, even direct message between two users.
-* Allow to use the name of the room instead of its ID when joining
 
 ## Installation
 
@@ -115,17 +111,42 @@ general (ID: GENERAL)
 test (ID: 497BsckNzoaT2PeMF)
 ```
 
-and join one or more using their ID
+and join one or more using their ID or their name
 
 ```
-/join aQhQEXsMuoS439dGS,GENERAL,497BsckNzoaT2PeMF
+/join aQhQEXsMuoS439dGS,GENERAL,test
 ```
 
 To automatically join a room when connected to the server you can add it to
 your channels list
 
 ```
-/channel add -auto 497BsckNzoaT2PeMF MyRocketChat
+/channel add -auto test MyRocketChat
 ```
+
+To start a private discussion with someone, use the `/query` command
+
+```
+/query john
+```
+
+## Commands
+
+### `/rocketchat channels`
+
+List public channels
+
+### `/rocketchat users`
+
+List users
+
+### `/rocketchat history`
+
+Print the last 10 lines of history for the current channel/query
+
+## Known bugs
+
+* `/query <nick> <message>` only works when the query already exists. If the
+  query does not exist yet the message will not be sent.
 
 [Rocket.Chat]: https://rocket.chat/
