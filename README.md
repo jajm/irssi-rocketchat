@@ -29,15 +29,16 @@ waiting 2 seconds to autocomplete a nick
 ### Requirements
 
 * [CMake](https://cmake.org)
+* A C compiler toolchain
 * irssi development files
 * [glib](https://developer.gnome.org/glib/)
 * [Jansson](https://digip.org/jansson/) (>= 2.11)
 * [libwebsockets](https://libwebsockets.org/) (>= 4.1) with glib support
 
-For cmake, irssi development files, glib and jansson you can use your package manager.
+For most of these you can use your package manager:
 
 ```sh
-apt-get install cmake irssi-dev libglib2.0-dev libjansson-dev
+apt-get install cmake build-essential irssi-dev libglib2.0-dev libjansson-dev
 ```
 
 But you will need to build libwebsockets from source. Compiling libwebsockets
