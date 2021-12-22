@@ -40,7 +40,12 @@ For cmake, irssi development files, glib and jansson you can use your package ma
 apt-get install cmake irssi-dev libglib2.0-dev libjansson-dev
 ```
 
-But you will need to build libwebsockets from source.
+But you will need to build libwebsockets from source. Compiling libwebsockets
+requires libssl development files
+
+```sh
+apt-get install libssl-dev
+```
 
 ```sh
 git clone -b v4.1-stable https://libwebsockets.org/repo/libwebsockets
