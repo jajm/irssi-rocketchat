@@ -443,6 +443,8 @@ static void sig_direct_message_created(ROCKETCHAT_SERVER_REC *server, const char
 		g_free(module_query->rid);
 		module_query->rid = g_strdup(rid);
 	}
+
+	rocketchat_subscribe(server, "stream-room-messages", rid);
 }
 
 static void sig_recv_ping(ROCKETCHAT_SERVER_REC *server, json_t *json)
