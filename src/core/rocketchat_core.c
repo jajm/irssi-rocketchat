@@ -362,7 +362,9 @@ result_cb_getRoomById(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userd
 
 static void sig_query_created(ROCKETCHAT_QUERY_REC *query, void *automatic_p)
 {
-	g_return_if_fail(IS_ROCKETCHAT_QUERY(query));
+	if (!IS_ROCKETCHAT_QUERY(query)) {
+		return;
+	}
 
 	MODULE_DATA_SET(query, g_new0(MODULE_QUERY_REC, 1));
 }
@@ -371,7 +373,9 @@ static void sig_query_destroyed(ROCKETCHAT_QUERY_REC *query)
 {
 	MODULE_QUERY_REC *data;
 
-	g_return_if_fail(IS_ROCKETCHAT_QUERY(query));
+	if (!IS_ROCKETCHAT_QUERY(query)) {
+		return;
+	}
 
 	data = MODULE_DATA(query);
 	if (data) {
@@ -387,7 +391,9 @@ static void sig_channel_created(CHANNEL_REC *channel, void *automatic_p)
 	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
 	ROCKETCHAT_SERVER_REC *server;
 
-	g_return_if_fail(IS_ROCKETCHAT_CHANNEL(channel));
+	if (!IS_ROCKETCHAT_CHANNEL(channel)) {
+		return;
+	}
 
 	server = ROCKETCHAT_SERVER(channel->server);
 
@@ -407,7 +413,9 @@ sig_channel_name_changed(CHANNEL_REC *channel)
 	json_t *params;
 	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
 
-	g_return_if_fail(IS_ROCKETCHAT_CHANNEL(channel));
+	if (!IS_ROCKETCHAT_CHANNEL(channel)) {
+		return;
+	}
 
 	params = json_array();
 	json_array_append_new(params, json_string(channel->name));
