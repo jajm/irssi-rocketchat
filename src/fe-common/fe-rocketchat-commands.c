@@ -162,11 +162,28 @@ static void cmd_rocketchat_history(const char *data, ROCKETCHAT_SERVER_REC *serv
 	rocketchat_call(server, "loadHistory", params, callback);
 }
 
+static void cmd_rocketchat_subscribe(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
+{
+	void *free_me = NULL;
+	char *name = NULL;
+	char *event = NULL;
+
+	if (!cmd_get_params(data, &free_me, 2, &name, &event)) {
+		return;
+	}
+
+	if (name && event) {
+		rocketchat_subscribe(server, name, event);
+	}
+	cmd_params_free(free_me);
+}
+
 void fe_rocketchat_commands_init(void)
 {
 	command_bind_rocketchat("rocketchat channels", NULL, (SIGNAL_FUNC)cmd_rocketchat_channels);
 	command_bind_rocketchat("rocketchat users", NULL, (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_bind_rocketchat("rocketchat history", NULL, (SIGNAL_FUNC)cmd_rocketchat_history);
+	command_bind_rocketchat("rocketchat subscribe", NULL, (SIGNAL_FUNC)cmd_rocketchat_subscribe);
 }
 
 void fe_rocketchat_commands_deinit(void)
@@ -174,4 +191,5 @@ void fe_rocketchat_commands_deinit(void)
 	command_unbind("rocketchat channels", (SIGNAL_FUNC)cmd_rocketchat_channels);
 	command_unbind("rocketchat users", (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_unbind("rocketchat history", (SIGNAL_FUNC)cmd_rocketchat_history);
+	command_unbind("rocketchat subscribe", (SIGNAL_FUNC)cmd_rocketchat_subscribe);
 }
