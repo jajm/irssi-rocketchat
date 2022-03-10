@@ -626,6 +626,68 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 	}
 }
 
+static int resub(void *data)
+{
+	ROCKETCHAT_SERVER_REC *server;
+	gchar *name, *event;
+	GPtrArray *args = data;
+
+	server = g_ptr_array_index(args, 0);
+	g_return_val_if_fail(IS_ROCKETCHAT_SERVER(server), G_SOURCE_REMOVE);
+
+	name = g_ptr_array_index(args, 1);
+	event = g_ptr_array_index(args, 2);
+
+	if (name && event) {
+		printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Resubscribing to %s %s", name, event);
+		rocketchat_subscribe(server, name, event);
+	}
+
+	g_free(name);
+	g_free(event);
+	g_ptr_array_free(args, TRUE);
+
+	return G_SOURCE_REMOVE;
+}
+
+static void sig_recv_nosub(ROCKETCHAT_SERVER_REC *server, json_t *json)
+{
+	const char *id, *message, *error_str;
+	json_t *error, *details;
+	json_int_t timeToReset;
+	gchar **tokens;
+	gint interval;
+
+	g_return_if_fail(IS_ROCKETCHAT_SERVER(server));
+
+	error = json_object_get(json, "error");
+	if (error) {
+		id = json_string_value(json_object_get(json, "id"));
+		message = json_string_value(json_object_get(error, "message"));
+
+		error_str = json_string_value(json_object_get(error, "error"));
+		if (error_str && !strcmp(error_str, "too-many-requests")) {
+			tokens = g_strsplit(id, ":", 3);
+			if (tokens[1] && tokens[2]) {
+				GPtrArray *args = g_ptr_array_new();
+				g_ptr_array_add(args, server);
+				g_ptr_array_add(args, g_strdup(tokens[1]));
+				g_ptr_array_add(args, g_strdup(tokens[2]));
+
+				details = json_object_get(error, "details");
+				timeToReset = json_integer_value(json_object_get(details, "timeToReset"));
+				interval = (timeToReset / 1000) + 1;
+				printtext(server, NULL, MSGLEVEL_CLIENTCRAP, "Subscription failed because of rate limit. Retrying in %d seconds [%s]", interval, id);
+
+				g_timeout_add_seconds(interval, resub, args);
+			}
+			g_strfreev(tokens);
+		} else {
+			printtext(server, NULL, MSGLEVEL_CLIENTERROR, "nosub: %s [%s]", message, id);
+		}
+	}
+}
+
 static CHATNET_REC *rocketchat_create_chatnet(void)
 {
 	return g_new0(CHATNET_REC, 1);
@@ -985,6 +1047,7 @@ void rocketchat_core_init(void)
 	signal_add("rocketchat recv result", sig_recv_result);
 	signal_add("rocketchat recv added", sig_recv_added);
 	signal_add("rocketchat recv changed", sig_recv_changed);
+	signal_add("rocketchat recv nosub", sig_recv_nosub);
 
 	rocketchat_servers_init();
 	rocketchat_servers_reconnect_init();

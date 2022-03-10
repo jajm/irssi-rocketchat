@@ -46,7 +46,7 @@ void rocketchat_call(ROCKETCHAT_SERVER_REC *server, const char *method, json_t *
 
 static char * rocketchat_subscription_id(const char *name, const char *event)
 {
-	return g_strconcat("sub-", name, "-", event, NULL);
+	return g_strconcat("sub:", name, ":", event, NULL);
 }
 
 void rocketchat_subscribe(ROCKETCHAT_SERVER_REC *server, const char *name, const char *event)
