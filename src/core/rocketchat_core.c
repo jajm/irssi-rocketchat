@@ -564,9 +564,15 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 			rid = json_string_value(json_object_get(message, "rid"));
 			ROCKETCHAT_ROOM_REC *room = g_hash_table_lookup(server->rooms, rid);
 			if (room) {
+				const char *tmid = json_string_value(json_object_get(message, "tmid"));
+
 				if (room->type == 'd' && strchr(room->name, ',') == NULL) {
 					char *msg = rocketchat_format_message(server, message);
 					if (msg != NULL) {
+						if (tmid) {
+							// FIXME if the query does not exist, the message is printed in the status window
+							printtext(server, room->name, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT, "In thread (reply with /rocketchat reply %s <msg>):", tmid);
+						}
 						signal_emit("message private", 5, server, msg, nick, server->connrec->address, room->name);
 						g_free(msg);
 					}
@@ -579,6 +585,9 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 
 					msg = rocketchat_format_message(server, message);
 					if (msg != NULL) {
+						if (tmid) {
+							printtext(server, rid, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT, "In thread (reply with /rocketchat reply %s <msg>):", tmid);
+						}
 						signal_emit("message public", 5, server, msg, nick, server->connrec->address, rid);
 						g_free(msg);
 					}
@@ -793,6 +802,9 @@ rocketchat_send_message(SERVER_REC *server_rec, const char *target, const char *
 	message = json_object();
 	json_object_set_new(message, "rid", json_string(rid));
 	json_object_set_new(message, "msg", json_string(msg));
+	if (server->tmid) {
+		json_object_set_new(message, "tmid", json_string(server->tmid));
+	}
 
 	params = json_array();
 	json_array_append_new(params, message);

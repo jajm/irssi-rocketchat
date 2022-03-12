@@ -150,6 +150,13 @@ List users
 
 Print the last 10 lines of history for the current channel/query
 
+### `/rocketchat reply <tmid> <message>`
+
+Send a message to a thread.
+
+`<tmid>` is the thread id. It's displayed before each received message that are
+from a thread
+
 ## Known bugs
 
 * `/query <nick> <message>` only works when the query already exists. If the

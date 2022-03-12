@@ -21,6 +21,7 @@ struct _ROCKETCHAT_SERVER_REC {
 	GHashTable *sent_messages;
 	GHashTable *rooms;
 	char *userId;
+	char *tmid;
 };
 
 void rocketchat_servers_init(void);

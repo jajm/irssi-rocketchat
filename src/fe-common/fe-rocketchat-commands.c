@@ -133,6 +133,8 @@ static void cmd_rocketchat_users(const char *data, ROCKETCHAT_SERVER_REC *server
 
 	callback = rocketchat_result_callback_new(result_cb_browseChannels, NULL);
 	rocketchat_call(server, "browseChannels", params, callback);
+
+	cmd_params_free(free_arg);
 }
 
 static void cmd_rocketchat_history(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
@@ -178,12 +180,41 @@ static void cmd_rocketchat_subscribe(const char *data, ROCKETCHAT_SERVER_REC *se
 	cmd_params_free(free_me);
 }
 
+static void cmd_rocketchat_reply(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
+{
+	void *free_me = NULL;
+	char *tmid = NULL;
+	char *text = NULL;
+	char *msg;
+
+	if (!cmd_get_params(data, &free_me, 2 | PARAM_FLAG_GETREST, &tmid, &text)) {
+		return;
+	}
+
+	if (tmid && text) {
+		server->tmid = g_strdup(tmid);
+
+		if (item->type == module_get_uniq_id_str("WINDOW ITEM TYPE", "CHANNEL")) {
+			msg = g_strdup_printf("-channel %s %s", window_item_get_target(item), text);
+		} else {
+			msg = g_strdup_printf("-nick %s %s", window_item_get_target(item), text);
+		}
+		signal_emit("command msg", 3, msg, server, item);
+		g_free(msg);
+
+		g_free(server->tmid);
+		server->tmid = NULL;
+	}
+	cmd_params_free(free_me);
+}
+
 void fe_rocketchat_commands_init(void)
 {
 	command_bind_rocketchat("rocketchat channels", NULL, (SIGNAL_FUNC)cmd_rocketchat_channels);
 	command_bind_rocketchat("rocketchat users", NULL, (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_bind_rocketchat("rocketchat history", NULL, (SIGNAL_FUNC)cmd_rocketchat_history);
 	command_bind_rocketchat("rocketchat subscribe", NULL, (SIGNAL_FUNC)cmd_rocketchat_subscribe);
+	command_bind_rocketchat("rocketchat reply", NULL, (SIGNAL_FUNC)cmd_rocketchat_reply);
 }
 
 void fe_rocketchat_commands_deinit(void)
@@ -192,4 +223,5 @@ void fe_rocketchat_commands_deinit(void)
 	command_unbind("rocketchat users", (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_unbind("rocketchat history", (SIGNAL_FUNC)cmd_rocketchat_history);
 	command_unbind("rocketchat subscribe", (SIGNAL_FUNC)cmd_rocketchat_subscribe);
+	command_unbind("rocketchat reply", (SIGNAL_FUNC)cmd_rocketchat_reply);
 }
