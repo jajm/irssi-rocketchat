@@ -86,7 +86,7 @@ chatnets = {
     MyRocketChat = {
         type = "rocketchat";
     }
-);
+};
 servers = (
     {
         address = "chat.example.com";
