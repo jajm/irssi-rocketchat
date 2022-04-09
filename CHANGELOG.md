@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nicklist is now updated when a user joins or leaves a room (#5)
 - Channel's visible name is now updated when a room is renamed
 - Show message id and thread id in front of each message
+- Add "sticky" threads
+
+### Changed
+
+- Renamed command `/rocketchat reply` to `/rocketchat thread`
 
 ## [0.5.0] - 2022-03-12
 

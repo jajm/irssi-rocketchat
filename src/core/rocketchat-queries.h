@@ -13,6 +13,8 @@
 #define STRUCT_SERVER_REC ROCKETCHAT_SERVER_REC
 struct _ROCKETCHAT_QUERY_REC {
 #include "query-rec.h"
+	char *rid;
+	char *tmid;
 };
 
 const char * rocketchat_query_get_rid(ROCKETCHAT_QUERY_REC *query);
