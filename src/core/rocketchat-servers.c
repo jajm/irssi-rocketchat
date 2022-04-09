@@ -37,7 +37,6 @@ static void sig_server_connected(ROCKETCHAT_SERVER_REC *server)
 	server->message_queue = g_queue_new();
 	server->buffer = g_string_new(NULL);
 	server->result_callbacks = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)rocketchat_result_callback_free);
-	server->sent_messages = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 	server->rooms = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)rocketchat_room_free);
 
 	support = json_array();
@@ -76,9 +75,6 @@ static void sig_server_destroyed(ROCKETCHAT_SERVER_REC *server)
 
 	g_hash_table_destroy(server->result_callbacks);
 	server->result_callbacks = NULL;
-
-	g_hash_table_destroy(server->sent_messages);
-	server->sent_messages = NULL;
 
 	g_hash_table_destroy(server->rooms);
 	server->rooms = NULL;

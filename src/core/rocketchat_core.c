@@ -44,7 +44,6 @@
 static void result_cb_sendMessage(ROCKETCHAT_SERVER_REC *server, json_t *json, json_t *userdata)
 {
 	json_t *error, *result;
-	const char *message_id;
 
 	error = json_object_get(json, "error");
 	if (error) {
@@ -52,10 +51,7 @@ static void result_cb_sendMessage(ROCKETCHAT_SERVER_REC *server, json_t *json, j
 	}
 
 	result = json_object_get(json, "result");
-	if (result) {
-		message_id = json_string_value(json_object_get(result, "_id"));
-		g_hash_table_insert(server->sent_messages, g_strdup(message_id), NULL);
-	} else {
+	if (!result) {
 		signal_emit("rocketchat error", 3, server, NULL, "Failed to send message");
 	}
 }
@@ -517,7 +513,6 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 	const char *collection = json_string_value(json_object_get(json, "collection"));
 	if (!strcmp(collection, "stream-room-messages")) {
 		gboolean isNew = TRUE;
-		gboolean isOwn;
 		const char *message_id;
 
 		json_t *fields = json_object_get(json, "fields");
@@ -584,9 +579,8 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 		}
 
 		message_id = json_string_value(json_object_get(message, "_id"));
-		isOwn = g_hash_table_remove(server->sent_messages, message_id);
 
-		if (isNew && !isOwn) {
+		if (isNew) {
 			const char *nick, *rid;
 
 			nick = json_string_value(json_object_get(json_object_get(message, "u"), "username"));
@@ -598,26 +592,20 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 				if (room->type == 'd' && strchr(room->name, ',') == NULL) {
 					char *msg = rocketchat_format_message(server, message);
 					if (msg != NULL) {
-						if (tmid) {
-							// FIXME if the query does not exist, the message is printed in the status window
-							printtext(server, room->name, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT, "In thread (reply with /rocketchat reply %s <msg>):", tmid);
-						}
-						signal_emit("message private", 5, server, msg, nick, server->connrec->address, room->name);
+						signal_emit("rocketchat message private", 6, server, msg, nick, message_id, room->name, tmid);
 						g_free(msg);
 					}
 				} else {
 					char *msg;
 
 					if (!channel_find((SERVER_REC *)server, rid)) {
-						CHAT_PROTOCOL(server)->channel_create(SERVER(server), rid, room->fname ? room->fname : room->name, TRUE);
+						const char *visible_name = room->fname ? room->fname : room->name;
+						CHAT_PROTOCOL(server)->channel_create(SERVER(server), rid, visible_name, TRUE);
 					}
 
 					msg = rocketchat_format_message(server, message);
 					if (msg != NULL) {
-						if (tmid) {
-							printtext(server, rid, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT, "In thread (reply with /rocketchat reply %s <msg>):", tmid);
-						}
-						signal_emit("message public", 5, server, msg, nick, server->connrec->address, rid);
+						signal_emit("rocketchat message public", 6, server, msg, nick, message_id, rid, tmid);
 						g_free(msg);
 					}
 				}

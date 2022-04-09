@@ -136,6 +136,23 @@ To start a private discussion with someone, use the `/query` command
 /query john
 ```
 
+## Message format & theme
+
+Message formats are customizable in the theme
+
+Type `/format rocketchat` to get the list of all available formats
+
+By default, these formats use 2 "abstracts" that are not defined in irssi's
+default theme: `msgid` and `tmid`. You need to define them:
+1. open your theme file (by default it's `~/.irssi/default.theme`),
+2. find the `abstracts` section,
+3. inside this section add the following lines (feel free to customize, see
+   https://github.com/irssi/irssi/blob/master/docs/formats.txt):
+```
+msgid = "[$0]"; # message id
+tmid = "[$0]"; # thread id
+```
+
 ## Commands
 
 ### `/rocketchat channels`
@@ -154,8 +171,9 @@ Print the last 10 lines of history for the current channel/query
 
 Send a message to a thread.
 
-`<tmid>` is the thread id. It's displayed before each received message that are
-from a thread
+`<tmid>` is the thread id. It's displayed before each received message that is
+from a thread. You can also reply to any message to create a new thread.
+
 
 ## Known bugs
 
