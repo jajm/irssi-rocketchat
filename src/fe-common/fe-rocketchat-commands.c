@@ -25,6 +25,8 @@
 #include "rocketchat-queries.h"
 #include "rocketchat-result-callbacks.h"
 #include "rocketchat-message.h"
+#include "rocketchat-room.h"
+#include "rocketchat-channels.h"
 #include "jansson.h"
 
 #define command_bind_rocketchat(cmd, category, func) \
@@ -180,31 +182,73 @@ static void cmd_rocketchat_subscribe(const char *data, ROCKETCHAT_SERVER_REC *se
 	cmd_params_free(free_me);
 }
 
-static void cmd_rocketchat_reply(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
+static void cmd_rocketchat_thread(const char *data, ROCKETCHAT_SERVER_REC *server, WI_ITEM_REC *item)
 {
 	void *free_me = NULL;
 	char *tmid = NULL;
 	char *text = NULL;
 	char *msg;
+	const char *rid;
+	int is_channel = 0;
+	ROCKETCHAT_ROOM_REC *room;
 
 	if (!cmd_get_params(data, &free_me, 2 | PARAM_FLAG_GETREST, &tmid, &text)) {
 		return;
 	}
 
-	if (tmid && text) {
-		server->tmid = g_strdup(tmid);
-
-		if (item->type == module_get_uniq_id_str("WINDOW ITEM TYPE", "CHANNEL")) {
-			msg = g_strdup_printf("-channel %s %s", window_item_get_target(item), text);
-		} else {
-			msg = g_strdup_printf("-nick %s %s", window_item_get_target(item), text);
-		}
-		signal_emit("command msg", 3, msg, server, item);
-		g_free(msg);
-
-		g_free(server->tmid);
-		server->tmid = NULL;
+	is_channel = item->type == module_get_uniq_id_str("WINDOW ITEM TYPE", "CHANNEL");
+	if (is_channel) {
+		rid = item->name;
+	} else {
+		rid = ROCKETCHAT_QUERY(item)->rid;
 	}
+
+	room = g_hash_table_lookup(server->rooms, rid);
+	g_return_if_fail(room != NULL);
+
+	if (*tmid != '\0') {
+		if (is_channel) {
+			ROCKETCHAT_CHANNEL(item)->tmid = g_strdup(tmid);
+		} else {
+			ROCKETCHAT_QUERY(item)->tmid = g_strdup(tmid);
+		}
+
+		if (*text != '\0') {
+			if (is_channel) {
+				msg = g_strdup_printf("-channel %s %s", window_item_get_target(item), text);
+			} else {
+				msg = g_strdup_printf("-nick %s %s", window_item_get_target(item), text);
+			}
+
+			signal_emit("command msg", 3, msg, server, item);
+			g_free(msg);
+
+			if (is_channel) {
+				g_free(ROCKETCHAT_CHANNEL(item)->tmid);
+				ROCKETCHAT_CHANNEL(item)->tmid = NULL;
+			} else {
+				g_free(ROCKETCHAT_QUERY(item)->tmid);
+				ROCKETCHAT_QUERY(item)->tmid = NULL;
+			}
+		} else {
+			g_free(item->visible_name);
+			item->visible_name = g_strjoin("/", room->fname ? room->fname : room->name, tmid, NULL);
+			signal_emit("window item name changed", 1, item);
+		}
+	} else {
+		if (is_channel) {
+			g_free(ROCKETCHAT_CHANNEL(item)->tmid);
+			ROCKETCHAT_CHANNEL(item)->tmid = NULL;
+		} else {
+			g_free(ROCKETCHAT_QUERY(item)->tmid);
+			ROCKETCHAT_QUERY(item)->tmid = NULL;
+		}
+
+		g_free(item->visible_name);
+		item->visible_name = g_strdup(room->fname ? room->fname : room->name);
+		signal_emit("window item name changed", 1, item);
+	}
+
 	cmd_params_free(free_me);
 }
 
@@ -214,7 +258,7 @@ void fe_rocketchat_commands_init(void)
 	command_bind_rocketchat("rocketchat users", NULL, (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_bind_rocketchat("rocketchat history", NULL, (SIGNAL_FUNC)cmd_rocketchat_history);
 	command_bind_rocketchat("rocketchat subscribe", NULL, (SIGNAL_FUNC)cmd_rocketchat_subscribe);
-	command_bind_rocketchat("rocketchat reply", NULL, (SIGNAL_FUNC)cmd_rocketchat_reply);
+	command_bind_rocketchat("rocketchat thread", NULL, (SIGNAL_FUNC)cmd_rocketchat_thread);
 }
 
 void fe_rocketchat_commands_deinit(void)
@@ -223,5 +267,5 @@ void fe_rocketchat_commands_deinit(void)
 	command_unbind("rocketchat users", (SIGNAL_FUNC)cmd_rocketchat_users);
 	command_unbind("rocketchat history", (SIGNAL_FUNC)cmd_rocketchat_history);
 	command_unbind("rocketchat subscribe", (SIGNAL_FUNC)cmd_rocketchat_subscribe);
-	command_unbind("rocketchat reply", (SIGNAL_FUNC)cmd_rocketchat_reply);
+	command_unbind("rocketchat thread", (SIGNAL_FUNC)cmd_rocketchat_thread);
 }

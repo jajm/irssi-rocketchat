@@ -361,24 +361,15 @@ static void sig_query_created(ROCKETCHAT_QUERY_REC *query, void *automatic_p)
 	if (!IS_ROCKETCHAT_QUERY(query)) {
 		return;
 	}
-
-	MODULE_DATA_SET(query, g_new0(MODULE_QUERY_REC, 1));
 }
 
 static void sig_query_destroyed(ROCKETCHAT_QUERY_REC *query)
 {
-	MODULE_QUERY_REC *data;
-
 	if (!IS_ROCKETCHAT_QUERY(query)) {
 		return;
 	}
 
-	data = MODULE_DATA(query);
-	if (data) {
-		g_free(data->rid);
-	}
-	g_free(data);
-	MODULE_DATA_UNSET(query);
+	g_free(query->rid);
 }
 
 static void sig_channel_created(CHANNEL_REC *channel, void *automatic_p)
@@ -424,8 +415,7 @@ static void sig_direct_message_created(ROCKETCHAT_SERVER_REC *server, const char
 {
 	const char *rid, *name, *fname;
 	char type;
-	MODULE_QUERY_REC *module_query;
-	QUERY_REC *query;
+	ROCKETCHAT_QUERY_REC *query;
 	ROCKETCHAT_ROOM_REC *room;
 
 	g_return_if_fail(IS_ROCKETCHAT_SERVER(server));
@@ -441,11 +431,10 @@ static void sig_direct_message_created(ROCKETCHAT_SERVER_REC *server, const char
 		g_hash_table_insert(server->rooms, g_strdup(rid), room);
 	}
 
-	query = query_find((SERVER_REC *)server, username);
+	query = (ROCKETCHAT_QUERY_REC *)query_find((SERVER_REC *)server, username);
 	if (query) {
-		module_query = MODULE_DATA(query);
-		g_free(module_query->rid);
-		module_query->rid = g_strdup(rid);
+		g_free(query->rid);
+		query->rid = g_strdup(rid);
 	}
 
 	rocketchat_subscribe(server, "stream-room-messages", rid);
@@ -805,22 +794,27 @@ rocketchat_send_message(SERVER_REC *server_rec, const char *target, const char *
 {
 	ROCKETCHAT_SERVER_REC *server = (ROCKETCHAT_SERVER_REC *)server_rec;
 	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
-	MODULE_QUERY_REC *module_query;
+	ROCKETCHAT_QUERY_REC *query;
+	ROCKETCHAT_CHANNEL_REC *channel;
 	json_t *message, *params;
 	const char *rid;
+	const char *tmid = NULL;
 
 	if (target_type == SEND_TARGET_NICK) {
-		module_query = MODULE_DATA(query_find(server_rec, target));
-		rid = module_query->rid;
+		query = (ROCKETCHAT_QUERY_REC *)query_find(server_rec, target);
+		rid = query->rid;
+		tmid = query->tmid;
 	} else {
+		channel = (ROCKETCHAT_CHANNEL_REC *)channel_find(server_rec, target);
 		rid = target;
+		tmid = channel->tmid;
 	}
 
 	message = json_object();
 	json_object_set_new(message, "rid", json_string(rid));
 	json_object_set_new(message, "msg", json_string(msg));
-	if (server->tmid) {
-		json_object_set_new(message, "tmid", json_string(server->tmid));
+	if (tmid) {
+		json_object_set_new(message, "tmid", json_string(tmid));
 	}
 
 	params = json_array();
@@ -1018,12 +1012,12 @@ static CHANNEL_REC *
 rocketchat_channel_create(SERVER_REC *server, const char *name, const char *visible_name,
     int automatic)
 {
-	CHANNEL_REC *channel;
+	ROCKETCHAT_CHANNEL_REC *channel;
 
-	channel = g_new0(CHANNEL_REC, 1);
-	channel_init(channel, server, name, visible_name, automatic);
+	channel = g_new0(ROCKETCHAT_CHANNEL_REC, 1);
+	channel_init((CHANNEL_REC *)channel, server, name, visible_name, automatic);
 
-	return channel;
+	return (CHANNEL_REC *)channel;
 }
 
 static QUERY_REC *

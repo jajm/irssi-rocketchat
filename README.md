@@ -177,13 +177,19 @@ List users
 
 Print the last 10 lines of history for the current channel/query
 
-### `/rocketchat reply <tmid> <message>`
+### `/rocketchat thread [<tmid>] [<message>]`
 
 Send a message to a thread.
 
 `<tmid>` is the thread id. It's displayed before each received message that is
 from a thread. You can also reply to any message to create a new thread.
 
+If `<message>` is omitted, set `<tmid>` as the "current" thread.
+All messages sent after this will be sent to that thread, until
+`/rocketchat thread` is called without arguments.
+
+If both `<tmid>` and `<message>` are omitted, unset the "current" thread.
+All messages sent after this will be sent to the channel.
 
 ## Known bugs
 

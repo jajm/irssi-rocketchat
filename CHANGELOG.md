@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Channel's visible name is now updated when a room is renamed
 - Show thread id in front of each threaded message
 - Add setting `rocketchat_print_msgid` to show message id in front of each message (disabled by default)
+- Add "sticky" threads (#8)
+
+### Changed
+
+- Renamed command `/rocketchat reply` to `/rocketchat thread`
 
 ## [0.5.0] - 2022-03-12
 
