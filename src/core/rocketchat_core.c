@@ -536,9 +536,38 @@ static void sig_recv_changed(ROCKETCHAT_SERVER_REC *server, json_t *json)
 			isNew = FALSE;
 		}
 
-		if (NULL != json_object_get(message, "t")) {
-			// TODO: Implement types 'uj' (user join), 'ul' (user leave), 'r' (rename)
-			isNew = FALSE;
+		json_t *t = json_object_get(message, "t");
+		if (t != NULL) {
+			const char *t_str = json_string_value(t);
+
+			if (!g_strcmp0(t_str, "uj")) {
+				const char *rid = json_string_value(json_object_get(message, "rid"));
+				const char *username = json_string_value(json_object_get(message, "msg"));
+				CHANNEL_REC *channel = channel_find((SERVER_REC *)server, rid);
+				if (channel && NULL == nicklist_find(channel, username)) {
+					NICK_REC *nick = g_new0(NICK_REC, 1);
+					nick->nick = g_strdup(username);
+					nicklist_insert(channel, nick);
+				}
+			} else if (!g_strcmp0(t_str, "ul")) {
+				const char *rid = json_string_value(json_object_get(message, "rid"));
+				const char *username = json_string_value(json_object_get(message, "msg"));
+				CHANNEL_REC *channel = channel_find((SERVER_REC *)server, rid);
+				if (channel) {
+					NICK_REC *nick = nicklist_find(channel, username);
+					if (nick) {
+						nicklist_remove(channel, nick);
+					}
+				}
+			} else if (!g_strcmp0(t_str, "r")) {
+				const char *rid = json_string_value(json_object_get(message, "rid"));
+				const char *name = json_string_value(json_object_get(message, "msg"));
+				CHANNEL_REC *channel = channel_find((SERVER_REC *)server, rid);
+				if (channel) {
+					channel_change_visible_name(channel, name);
+				}
+			}
+			return;
 		}
 
 		json_t *urls = json_object_get(message, "urls");
