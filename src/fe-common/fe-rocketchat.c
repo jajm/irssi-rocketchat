@@ -310,6 +310,10 @@ void fe_rocketchat_init(void)
 {
 	theme_register(fecommon_rocketchat_formats);
 
+	theme_set_default_abstract("msgid", "{comment $0}");
+	theme_set_default_abstract("tmid", "{comment $0}");
+	themes_reload();
+
 	signal_add("rocketchat json out", sig_json_out);
 	signal_add("rocketchat json in", sig_json_in);
 	signal_add("rocketchat recv result subscriptions", sig_recv_result_subscriptions);

@@ -142,16 +142,18 @@ Message formats are customizable in the theme
 
 Type `/format rocketchat` to get the list of all available formats
 
-By default, these formats use 2 "abstracts" that are not defined in irssi's
-default theme: `msgid` and `tmid`. You need to define them:
+These formats use 2 "abstracts" that are not defined in irssi's default theme:
+`msgid` and `tmid`. By default they are defined as `{comment $0}`. If you want
+to change them:
+
 1. open your theme file (by default it's `~/.irssi/default.theme`),
 2. find the `abstracts` section,
-3. inside this section add the following lines (feel free to customize, see
-   https://github.com/irssi/irssi/blob/master/docs/formats.txt):
-```
-msgid = "[$0]"; # message id
-tmid = "[$0]"; # thread id
-```
+3. inside this section add the following lines and customize them as you wish
+   (see https://github.com/irssi/irssi/blob/master/docs/formats.txt):
+   ```
+   msgid = "{comment $0}"; # message id
+   tmid = "{comment $0}"; # thread id
+   ```
 
 ## Commands
 
