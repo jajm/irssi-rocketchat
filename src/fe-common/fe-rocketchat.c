@@ -293,6 +293,10 @@ static void sig_complete_word(GList **complist, WINDOW_REC *window, char *word, 
 static void sig_message_own_public(SERVER_REC *server, const char *msg,
 				   const char *target)
 {
+	if (!IS_ROCKETCHAT_SERVER(server)) {
+		return;
+	}
+
 	/* Prevent sent message from being printed. It will be printed when
 	 * sent back by the server */
 	signal_stop();
@@ -301,6 +305,10 @@ static void sig_message_own_public(SERVER_REC *server, const char *msg,
 static void sig_message_own_private(SERVER_REC *server, const char *msg,
 				   const char *target)
 {
+	if (!IS_ROCKETCHAT_SERVER(server)) {
+		return;
+	}
+
 	/* Prevent sent message from being printed. It will be printed when
 	 * sent back by the server */
 	signal_stop();
