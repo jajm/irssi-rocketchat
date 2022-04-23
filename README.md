@@ -155,6 +155,14 @@ to change them:
    tmid = "{comment $0}"; # thread id
    ```
 
+## Settings
+
+### `rocketchat_print_msgid`
+
+- Type: boolean
+- Default value: `OFF`
+- Description: If enabled, each message will have its ID printed in front of it
+
 ## Commands
 
 ### `/rocketchat channels`

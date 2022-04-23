@@ -88,7 +88,7 @@ static void sig_rocketchat_message_public(SERVER_REC *server, const char *msg,
 			       const char *target, const char *tmid)
 {
 	CHANNEL_REC *chanrec;
-	int for_me, print_channel, level;
+	int for_me, print_channel, print_msgid, level;
 	char *color, *freemsg = NULL;
 	char *nickmode = NULL;
 	char *address = server->connrec->address;
@@ -132,6 +132,8 @@ static void sig_rocketchat_message_public(SERVER_REC *server, const char *msg,
 	if (settings_get_bool("emphasis"))
 		msg = freemsg = expand_emphasis((WI_ITEM_REC *) chanrec, msg);
 
+	print_msgid = settings_get_bool("rocketchat_print_msgid");
+
 	format_create_dest(&dest, server, target, level, NULL);
 	dest.address = address;
 	dest.nick = nick;
@@ -141,44 +143,78 @@ static void sig_rocketchat_message_public(SERVER_REC *server, const char *msg,
 		if (!print_channel) {
 			/* message to active channel in window */
 			if (tmid) {
-				printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_THREAD, color,
-						 nick, msg, nickmode, msgid, tmid);
+				if (print_msgid) {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_THREAD_MSGID, color, nick, msg, nickmode, tmid, msgid);
+				} else {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_THREAD, color, nick, msg, nickmode, tmid);
+				}
 			} else {
-				printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT, color,
-						 nick, msg, nickmode, msgid);
+				if (print_msgid) {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_MSGID, color, nick, msg, nickmode, msgid);
+				} else {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT, color, nick, msg, nickmode);
+				}
 			}
 		} else {
 			/* message to not existing/active channel */
 			if (tmid) {
-				printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL_THREAD,
-						 color, nick, target, msg, nickmode, msgid, tmid);
+				if (print_msgid) {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL_THREAD_MSGID, color, nick, target, msg, nickmode, tmid, msgid);
+				} else {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL_THREAD, color, nick, target, msg, nickmode, tmid);
+				}
 			} else {
-				printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL,
-						 color, nick, target, msg, nickmode, msgid);
+				if (print_msgid) {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL_MSGID, color, nick, target, msg, nickmode, msgid);
+				} else {
+					printformat_dest(&dest, ROCKETCHATTXT_PUBMSG_HILIGHT_CHANNEL, color, nick, target, msg, nickmode);
+				}
 			}
 		}
 	} else {
 		if (!print_channel) {
 			if (tmid) {
-				int formatnum = own ? ROCKETCHATTXT_OWN_MSG_THREAD :
-						for_me ? ROCKETCHATTXT_PUBMSG_ME_THREAD : ROCKETCHATTXT_PUBMSG_THREAD;
-				printformat_dest(&dest, formatnum,
-					    nick, msg, nickmode, msgid, tmid);
+				if (print_msgid) {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_THREAD_MSGID :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_THREAD_MSGID : ROCKETCHATTXT_PUBMSG_THREAD_MSGID;
+					printformat_dest(&dest, formatnum, nick, msg, nickmode, tmid, msgid);
+				} else {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_THREAD :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_THREAD : ROCKETCHATTXT_PUBMSG_THREAD;
+					printformat_dest(&dest, formatnum, nick, msg, nickmode, tmid);
+				}
 			} else {
-				int formatnum = own ? ROCKETCHATTXT_OWN_MSG :
-						for_me ? ROCKETCHATTXT_PUBMSG_ME : ROCKETCHATTXT_PUBMSG;
-				printformat_dest(&dest, formatnum,
-					    nick, msg, nickmode, msgid);
+				if (print_msgid) {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_MSGID :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_MSGID : ROCKETCHATTXT_PUBMSG_MSGID;
+					printformat_dest(&dest, formatnum, nick, msg, nickmode, msgid);
+				} else {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME : ROCKETCHATTXT_PUBMSG;
+					printformat_dest(&dest, formatnum, nick, msg, nickmode);
+				}
 			}
 		} else {
 			if (tmid) {
-				int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL_THREAD :
-						for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL_THREAD : ROCKETCHATTXT_PUBMSG_CHANNEL_THREAD;
-				printformat_dest(&dest, formatnum, nick, target, msg, nickmode, msgid, tmid);
+				if (print_msgid) {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL_THREAD_MSGID :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL_THREAD_MSGID : ROCKETCHATTXT_PUBMSG_CHANNEL_THREAD_MSGID;
+					printformat_dest(&dest, formatnum, nick, target, msg, nickmode, tmid, msgid);
+				} else {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL_THREAD :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL_THREAD : ROCKETCHATTXT_PUBMSG_CHANNEL_THREAD;
+					printformat_dest(&dest, formatnum, nick, target, msg, nickmode, tmid);
+				}
 			} else {
-				int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL :
-						for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL : ROCKETCHATTXT_PUBMSG_CHANNEL;
-				printformat_dest(&dest, formatnum, nick, target, msg, nickmode, msgid);
+				if (print_msgid) {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL_MSGID :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL_MSGID : ROCKETCHATTXT_PUBMSG_CHANNEL_MSGID;
+					printformat_dest(&dest, formatnum, nick, target, msg, nickmode, msgid);
+				} else {
+					int formatnum = own ? ROCKETCHATTXT_OWN_MSG_CHANNEL :
+							for_me ? ROCKETCHATTXT_PUBMSG_ME_CHANNEL : ROCKETCHATTXT_PUBMSG_CHANNEL;
+					printformat_dest(&dest, formatnum, nick, target, msg, nickmode);
+				}
 			}
 		}
 	}
@@ -193,6 +229,7 @@ static void sig_rocketchat_message_private(SERVER_REC *server, const char *msg, 
 	QUERY_REC *query;
 	char *freemsg = NULL;
 	int level = MSGLEVEL_MSGS;
+	int print_msgid;
 	const char *address = server->connrec->address;
 
 	if (ignore_check(server, nick, address, NULL, msg, MSGLEVEL_MSGS)) {
@@ -217,32 +254,66 @@ static void sig_rocketchat_message_private(SERVER_REC *server, const char *msg, 
 
 	ignore_check_plus(server, nick, address, NULL, msg, &level, FALSE);
 
+	print_msgid = settings_get_bool("rocketchat_print_msgid");
+
 	if (own) {
 		if (query) {
 			if (tmid) {
-				printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY_THREAD, target, msg, server->nick, msgid, tmid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY_THREAD_MSGID, target, msg, server->nick, tmid, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY_THREAD, target, msg, server->nick, tmid);
+				}
 			} else {
-				printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY, target, msg, server->nick, msgid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY_MSGID, target, msg, server->nick, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_QUERY, target, msg, server->nick);
+				}
 			}
 		} else {
 			if (tmid) {
-				printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_THREAD, target, msg, msgid, tmid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_THREAD_MSGID, target, msg, tmid, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_THREAD, target, msg, tmid);
+				}
 			} else {
-				printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE, target, msg, msgid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE_MSGID, target, msg, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_OWN_MSG_PRIVATE, target, msg);
+				}
 			}
 		}
 	} else {
 		if (query) {
 			if (tmid) {
-				printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD, nick, address, msg, msgid, tmid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD_MSGID, nick, address, msg, msgid, tmid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD, nick, address, msg, tmid);
+				}
 			} else {
-				printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY, nick, address, msg, msgid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_MSGID, nick, address, msg, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY, nick, address, msg);
+				}
 			}
 		} else {
 			if (tmid) {
-				printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_THREAD, nick, address, msg, msgid, tmid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_THREAD_MSGID, nick, address, msg, tmid, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_THREAD, nick, address, msg, tmid);
+				}
 			} else {
-				printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE, nick, address, msg, msgid);
+				if (print_msgid) {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_MSGID, nick, address, msg, msgid);
+				} else {
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE, nick, address, msg);
+				}
 			}
 		}
 	}
@@ -333,6 +404,7 @@ void fe_rocketchat_init(void)
 	signal_add("message own_private", sig_message_own_private);
 
 	settings_add_bool("rocketchat", "rocketchat_debug", FALSE);
+	settings_add_bool("rocketchat", "rocketchat_print_msgid", FALSE);
 
 	fe_rocketchat_commands_init();
 
