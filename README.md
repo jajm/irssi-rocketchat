@@ -163,6 +163,13 @@ to change them:
 - Default value: `OFF`
 - Description: If enabled, each message will have its ID printed in front of it
 
+### `rocketchat_max_tmids_saved`
+
+- Type: integer
+- Default value: `10`
+- Description: Maximum number of thread ids saved per channel/query. These are
+  used for `/rocketchat thread` completion
+
 ## Commands
 
 ### `/rocketchat channels`

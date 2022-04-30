@@ -32,12 +32,42 @@
 #include "ignore.h"
 #include "window-items.h"
 #include "rocketchat-servers.h"
+#include "rocketchat-channels.h"
+#include "rocketchat-queries.h"
 #include "rocketchat-protocol.h"
 #include "rocketchat-message.h"
 #include "rocketchat-result-callbacks.h"
 #include "fe-rocketchat-commands.h"
 #include "module-formats.h"
 #include "jansson.h"
+
+static void save_tmid(WI_ITEM_REC *item, const char *tmid)
+{
+	MODULE_WI_ITEM_REC *module_data;
+	GQueue *last_thread_ids;
+	GList *link;
+	char *data;
+	int max_tmids_saved;
+
+	g_return_if_fail(item != NULL);
+	g_return_if_fail(tmid != NULL);
+
+	module_data = MODULE_DATA(item);
+	last_thread_ids = module_data->last_thread_ids;
+	link = g_queue_find_custom(last_thread_ids, tmid, (GCompareFunc) g_strcmp0);
+	if (link) {
+		g_queue_unlink(last_thread_ids, link);
+		g_queue_push_head_link(last_thread_ids, link);
+	} else {
+		g_queue_push_head(last_thread_ids, g_strdup(tmid));
+	}
+
+	max_tmids_saved = settings_get_int("rocketchat_max_tmids_saved");
+	while (g_queue_get_length(last_thread_ids) > max_tmids_saved) {
+		data = g_queue_pop_tail(last_thread_ids);
+		g_free(data);
+	}
+}
 
 static void sig_json_out(ROCKETCHAT_SERVER_REC *server, const char *json)
 {
@@ -219,6 +249,10 @@ static void sig_rocketchat_message_public(SERVER_REC *server, const char *msg,
 		}
 	}
 
+	if (chanrec && tmid) {
+		save_tmid((WI_ITEM_REC *)chanrec, tmid);
+	}
+
 	g_free_not_null(nickmode);
 	g_free_not_null(freemsg);
 	g_free_not_null(color);
@@ -318,6 +352,10 @@ static void sig_rocketchat_message_private(SERVER_REC *server, const char *msg, 
 		}
 	}
 
+	if (query && tmid) {
+		save_tmid((WI_ITEM_REC *)query, tmid);
+	}
+
 	g_free_not_null(freemsg);
 }
 
@@ -385,6 +423,92 @@ static void sig_message_own_private(SERVER_REC *server, const char *msg,
 	signal_stop();
 }
 
+static void sig_query_created(QUERY_REC *query, int automatic)
+{
+	MODULE_WI_ITEM_REC *module_data;
+
+	if (!IS_ROCKETCHAT_QUERY(query)) {
+		return;
+	}
+
+	module_data = g_new0(MODULE_WI_ITEM_REC, 1);
+	module_data->last_thread_ids = g_queue_new();
+	MODULE_DATA_SET(query, module_data);
+}
+
+static void sig_query_destroyed(QUERY_REC *query)
+{
+	MODULE_WI_ITEM_REC *module_data;
+
+	if (!IS_ROCKETCHAT_QUERY(query)) {
+		return;
+	}
+
+	module_data = MODULE_DATA(query);
+	if (module_data) {
+		g_queue_free_full(module_data->last_thread_ids, g_free);
+		g_free(module_data);
+		MODULE_DATA_UNSET(query);
+	}
+}
+
+static void sig_channel_created(CHANNEL_REC *channel, int automatic)
+{
+	MODULE_WI_ITEM_REC *module_data;
+
+	if (!IS_ROCKETCHAT_CHANNEL(channel)) {
+		return;
+	}
+
+	module_data = g_new0(MODULE_WI_ITEM_REC, 1);
+	module_data->last_thread_ids = g_queue_new();
+	MODULE_DATA_SET(channel, module_data);
+}
+
+static void sig_channel_destroyed(CHANNEL_REC *channel)
+{
+	MODULE_WI_ITEM_REC *module_data;
+
+	if (!IS_ROCKETCHAT_CHANNEL(channel)) {
+		return;
+	}
+
+	module_data = MODULE_DATA(channel);
+	if (module_data) {
+		g_queue_free_full(module_data->last_thread_ids, g_free);
+		g_free(module_data);
+		MODULE_DATA_UNSET(channel);
+	}
+}
+
+static void sig_complete_command_rocketchat_thread(GList **list, WINDOW_REC *window, const char *word, const char *line, int *want_space)
+{
+	MODULE_WI_ITEM_REC *module_data;
+	GList *tmp;
+
+	if (!window->active) {
+		return;
+	}
+
+	if (*line != '\0') {
+		return;
+	}
+
+	module_data = MODULE_DATA(window->active);
+	if (!module_data) {
+		return;
+	}
+
+	tmp = module_data->last_thread_ids->head;
+	while (tmp) {
+		if (g_str_has_prefix(tmp->data, word)) {
+			*list = g_list_append(*list, g_strdup(tmp->data));
+		}
+		tmp = tmp->next;
+	}
+	*want_space = TRUE;
+}
+
 void fe_rocketchat_init(void)
 {
 	theme_register(fecommon_rocketchat_formats);
@@ -402,9 +526,15 @@ void fe_rocketchat_init(void)
 	signal_add("complete word", sig_complete_word);
 	signal_add("message own_public", sig_message_own_public);
 	signal_add("message own_private", sig_message_own_private);
+	signal_add("query created", sig_query_created);
+	signal_add("query destroyed", sig_query_destroyed);
+	signal_add("channel created", sig_channel_created);
+	signal_add("channel destroyed", sig_channel_destroyed);
+	signal_add("complete command rocketchat thread", sig_complete_command_rocketchat_thread);
 
 	settings_add_bool("rocketchat", "rocketchat_debug", FALSE);
 	settings_add_bool("rocketchat", "rocketchat_print_msgid", FALSE);
+	settings_add_int("rocketchat", "rocketchat_max_tmids_saved", 10);
 
 	fe_rocketchat_commands_init();
 
@@ -424,6 +554,11 @@ void fe_rocketchat_deinit(void)
 	signal_remove("complete word", sig_complete_word);
 	signal_remove("message own_public", sig_message_own_public);
 	signal_remove("message own_private", sig_message_own_private);
+	signal_remove("query created", sig_query_created);
+	signal_remove("query destroyed", sig_query_destroyed);
+	signal_remove("channel created", sig_channel_created);
+	signal_remove("channel destroyed", sig_channel_destroyed);
+	signal_remove("complete command rocketchat thread", sig_complete_command_rocketchat_thread);
 
 	theme_unregister();
 }
