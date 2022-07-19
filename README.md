@@ -64,8 +64,8 @@ Once all dependencies are installed, build and install irssi-rocketchat
 
 ```sh
 cd /path/to/irssi-rocketchat
-mkdir build && cd build
-cmake .. && make && make install
+cmake -S . -B build -D CMAKE_BUILD_TYPE=Release -D IRSSI_MODULEDIR=~/.irssi/modules
+cmake --build build --target install
 ```
 
 This will install irssi-rocketchat in ~/.irssi/modules

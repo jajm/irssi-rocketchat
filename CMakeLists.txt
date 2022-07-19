@@ -15,6 +15,8 @@ set(IRSSI_INCLUDE_DIRS
     ${IRSSI_INCLUDE_DIR}/src/core
     ${IRSSI_INCLUDE_DIR}/src/fe-common/core)
 
+set(IRSSI_MODULEDIR "${CMAKE_INSTALL_PREFIX}/lib/irssi/modules" CACHE PATH "Irssi modules directory (where to install modules)")
+
 file(GLOB CORE_SRCS src/core/*.c)
 add_library(rocketchat_core MODULE ${CORE_SRCS})
 
@@ -46,4 +48,4 @@ target_link_libraries(fe_rocketchat
     ${JANSSON_LIBRARIES})
 
 install(TARGETS rocketchat_core fe_rocketchat
-    LIBRARY DESTINATION ~/.irssi/modules)
+    LIBRARY DESTINATION ${IRSSI_MODULEDIR})
