@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Completion of thread id for `/rocketchat thread` (#9)
 
+### Fixed
+
+- Fixed order of arguments for format `msg_private_query_thread_msgid`
+
 ## [0.6.0] - 2022-04-23
 
 ### Added

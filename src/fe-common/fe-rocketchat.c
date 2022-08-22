@@ -324,7 +324,7 @@ static void sig_rocketchat_message_private(SERVER_REC *server, const char *msg, 
 		if (query) {
 			if (tmid) {
 				if (print_msgid) {
-					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD_MSGID, nick, address, msg, msgid, tmid);
+					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD_MSGID, nick, address, msg, tmid, msgid);
 				} else {
 					printformat(server, target, level, ROCKETCHATTXT_MSG_PRIVATE_QUERY_THREAD, nick, address, msg, tmid);
 				}
