@@ -35,27 +35,10 @@ waiting 2 seconds to autocomplete a nick
 * [Jansson](https://digip.org/jansson/) (>= 2.11)
 * [libwebsockets](https://libwebsockets.org/) (>= 4.1) with glib support
 
-For most of these you can use your package manager:
+On debian stable, you can install these with the following command:
 
 ```sh
-apt-get install cmake build-essential irssi-dev libglib2.0-dev libjansson-dev
-```
-
-But you will need to build libwebsockets from source. Compiling libwebsockets
-requires libssl development files
-
-```sh
-apt-get install libssl-dev
-```
-
-```sh
-git clone -b v4.1-stable https://libwebsockets.org/repo/libwebsockets
-cd libwebsockets
-mkdir build && cd build
-cmake -DLWS_WITH_GLIB=1 .. && make
-# as root
-make install
-ldconfig
+apt-get install cmake build-essential irssi-dev libglib2.0-dev libjansson-dev libwebsockets-dev
 ```
 
 ### Building
