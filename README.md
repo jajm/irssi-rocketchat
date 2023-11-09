@@ -81,10 +81,15 @@ servers = (
 );
 ```
 
-Then open irssi and enter the following commands:
+In `~/.irssi/startup`, add the following line:
 
 ```
-/load rocketchat
+LOAD rocketchat
+```
+
+Then open irssi and enter the following command:
+
+```
 /connect MyRocketChat
 ```
 
