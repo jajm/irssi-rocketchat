@@ -76,7 +76,7 @@ servers = (
         chatnet = "MyRocketChat";
         port = "443";
         use_tls = "yes";
-        password "<your-access-token>";
+        password = "<your-access-token>";
     }
 );
 ```
