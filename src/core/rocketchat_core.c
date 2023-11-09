@@ -932,6 +932,7 @@ static int rocketchat_lws_callback(struct lws *wsi, enum lws_callback_reasons re
 					g_free(signal);
 				}
 				json_decref(json);
+				server_meta_clear_all(SERVER(server));
 			} else {
 				g_string_append_len(server->buffer, in, len);
 			}
