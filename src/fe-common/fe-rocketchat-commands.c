@@ -148,7 +148,7 @@ static void cmd_rocketchat_history(const char *data, ROCKETCHAT_SERVER_REC *serv
 
 	target = window_item_get_target(item);
 	if (item->type == module_get_uniq_id_str("WINDOW ITEM TYPE", "QUERY")) {
-		rid = rocketchat_query_get_rid((ROCKETCHAT_QUERY_REC *)item);
+		rid = ((ROCKETCHAT_QUERY_REC *)item)->rid;
 	} else {
 		rid = target;
 	}
