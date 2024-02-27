@@ -21,7 +21,7 @@ waiting 2 seconds to autocomplete a nick
 * create direct message using `/query <nick>`
 * receive/send messages from/to rooms
 * automatic join to rooms when a message is received
-* room history: the last 10 messages can be loaded using `/rocketchat history`
+* room history: the last messages can be loaded using `/rocketchat history`
 * nicklist
 
 ## Installation
@@ -168,9 +168,11 @@ List public channels
 
 List users
 
-### `/rocketchat history`
+### `/rocketchat history [<count>]`
 
-Print the last 10 lines of history for the current channel/query
+Print the last `<count>` lines of history for the current channel/query
+
+If `<count>` is omitted, the last 10 lines of history are printed
 
 ### `/rocketchat thread [<tmid>] [<message>]`
 

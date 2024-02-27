@@ -147,6 +147,13 @@ static void cmd_rocketchat_history(const char *data, ROCKETCHAT_SERVER_REC *serv
 	const char *target;
 	const char *rid;
 	ROCKETCHAT_RESULT_CALLBACK_REC *callback;
+	void *free_me;
+	char *countstr = NULL;
+	int count = 10;
+
+	if (!cmd_get_params(data, &free_me, 1, &countstr)) {
+		return;
+	}
 
 	target = window_item_get_target(item);
 	if (item->type == module_get_uniq_id_str("WINDOW ITEM TYPE", "QUERY")) {
@@ -155,10 +162,14 @@ static void cmd_rocketchat_history(const char *data, ROCKETCHAT_SERVER_REC *serv
 		rid = target;
 	}
 
+	if (countstr != NULL && *countstr != '\0') {
+		count = atoi(countstr);
+	}
+
 	params = json_array();
 	json_array_append(params, json_string(rid));
 	json_array_append(params, json_null());
-	json_array_append(params, json_integer(10));
+	json_array_append(params, json_integer(count));
 	json_array_append(params, json_null());
 
 	userdata = json_object();
