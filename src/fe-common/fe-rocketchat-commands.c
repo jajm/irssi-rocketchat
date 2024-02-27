@@ -70,6 +70,7 @@ static void result_cb_loadHistory(ROCKETCHAT_SERVER_REC *server, json_t *json, j
 	result = json_object_get(json, "result");
 	messages = json_object_get(result, "messages");
 
+	printtext(server, target, MSGLEVEL_CLIENTCRAP|MSGLEVEL_NEVER, "History:");
 	for (index = json_array_size(messages); index > 0; index--) {
 		const char *username;
 		GDateTime *datetime;
@@ -83,14 +84,15 @@ static void result_cb_loadHistory(ROCKETCHAT_SERVER_REC *server, json_t *json, j
 
 		ts = json_integer_value(json_object_get(json_object_get(message, "ts"), "$date"));
 		datetime = g_date_time_new_from_unix_local(ts / 1000);
-		datetime_formatted = g_date_time_format(datetime, "%c");
+		datetime_formatted = g_date_time_format(datetime, "%F %T");
 
-		printtext(server, target, MSGLEVEL_CLIENTCRAP, "<%s> %s (%s)", username, msg, datetime_formatted);
+		printtext(server, target, MSGLEVEL_CLIENTCRAP|MSGLEVEL_NEVER, "%s <%s> %s", datetime_formatted, username, msg);
 
 		g_free(msg);
 		g_free(datetime_formatted);
 		g_date_time_unref(datetime);
 	}
+	printtext(server, target, MSGLEVEL_CLIENTCRAP|MSGLEVEL_NEVER, "End of History");
 }
 
 
